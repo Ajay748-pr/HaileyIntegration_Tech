@@ -1,0 +1,197 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+
+  "parameters": {
+    "logicAppName":       { "type": "string",       "defaultValue": "la-hailey-hr-sync" },
+    "location":           { "type": "string",       "defaultValue": "[resourceGroup().location]" },
+    "keyVaultName":       { "type": "string",       "metadata": { "description": "Name of the Key Vault that holds HaileyApiKey secret." } },
+    "haileyApiBaseUrl":   { "type": "string",       "metadata": { "description": "Hailey HR API base URL, e.g. https://api.haileyhr.app" } },
+    "functionAppBaseUrl": { "type": "string",       "metadata": { "description": "Azure Function App base URL, e.g. https://<funcapp>.azurewebsites.net" } },
+    "functionAppKey":     { "type": "securestring", "metadata": { "description": "Function App host key (x-functions-key)." } }
+  },
+
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2019-05-01",
+      "name": "[parameters('logicAppName')]",
+      "location": "[parameters('location')]",
+      "identity": { "type": "SystemAssigned" },
+      "properties": {
+        "state": "Enabled",
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+
+          "parameters": {
+            "keyVaultName":       { "type": "String",       "defaultValue": "[parameters('keyVaultName')]" },
+            "haileyApiBaseUrl":   { "type": "String",       "defaultValue": "[parameters('haileyApiBaseUrl')]" },
+            "functionAppBaseUrl": { "type": "String",       "defaultValue": "[parameters('functionAppBaseUrl')]" },
+            "functionAppKey":     { "type": "SecureString", "defaultValue": "[parameters('functionAppKey')]" }
+          },
+
+          "triggers": {
+            "Every_6_Hours": {
+              "type": "Recurrence",
+              "recurrence": {
+                "frequency": "Hour",
+                "interval": 6,
+                "startTime": "2026-01-01T00:00:00Z",
+                "timeZone": "UTC"
+              }
+            }
+          },
+
+          "actions": {
+
+            "Step_1_Get_Hailey_API_Key_From_KeyVault": {
+              "type": "Http",
+              "runAfter": {},
+              "inputs": {
+                "method": "GET",
+                "uri": "@{concat('https://', parameters('keyVaultName'), '.vault.azure.net/secrets/HaileyApiKey?api-version=7.4')}",
+                "authentication": {
+                  "type": "ManagedServiceIdentity",
+                  "audience": "https://vault.azure.net"
+                }
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": ["inputs", "outputs"]
+                }
+              }
+            },
+
+            "Step_2_Call_Hailey_Employee_API": {
+              "type": "Http",
+              "runAfter": {
+                "Step_1_Get_Hailey_API_Key_From_KeyVault": ["Succeeded"]
+              },
+              "inputs": {
+                "method": "GET",
+                "uri": "@{concat(parameters('haileyApiBaseUrl'), '/v1/employees')}",
+                "headers": {
+                  "Authorization": "@{concat('Bearer ', body('Step_1_Get_Hailey_API_Key_From_KeyVault')?['value'])}",
+                  "Accept": "application/json"
+                }
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": ["inputs"]
+                }
+              }
+            },
+
+            "Step_3_Filter_Last_Updated_Employees": {
+              "type": "Http",
+              "runAfter": {
+                "Step_2_Call_Hailey_Employee_API": ["Succeeded"]
+              },
+              "inputs": {
+                "method": "POST",
+                "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/employees/filter')}",
+                "headers": {
+                  "x-functions-key": "@parameters('functionAppKey')",
+                  "Content-Type": "application/json"
+                },
+                "body": {
+                  "employees": "@body('Step_2_Call_Hailey_Employee_API')",
+                  "windowHours": 6
+                }
+              }
+            },
+
+            "Step_4_Check_If_Any_Employees_Updated": {
+              "type": "If",
+              "runAfter": {
+                "Step_3_Filter_Last_Updated_Employees": ["Succeeded"]
+              },
+              "expression": {
+                "and": [
+                  {
+                    "greater": [
+                      "@body('Step_3_Filter_Last_Updated_Employees')?['filteredCount']",
+                      0
+                    ]
+                  }
+                ]
+              },
+
+              "actions": {
+
+                "Step_4a_Log_Updated_Employees": {
+                  "type": "Compose",
+                  "runAfter": {},
+                  "inputs": {
+                    "runTime": "@utcNow()",
+                    "filteredCount": "@body('Step_3_Filter_Last_Updated_Employees')?['filteredCount']",
+                    "totalReceived": "@body('Step_3_Filter_Last_Updated_Employees')?['totalReceived']",
+                    "windowStart": "@body('Step_3_Filter_Last_Updated_Employees')?['windowStart']",
+                    "windowEnd": "@body('Step_3_Filter_Last_Updated_Employees')?['windowEnd']",
+                    "note": "Phase 1 — downstream dispatch not yet wired. Downstream systems (Primula, Quinyx, Learnify, AD) will be added in Phase 2 when endpoints are available.",
+                    "updatedEmployeeNumbers": "@body('Step_3_Filter_Last_Updated_Employees')?['employees']"
+                  }
+                },
+
+                "Step_4b_For_Each_Employee_Placeholder": {
+                  "type": "Foreach",
+                  "runAfter": {
+                    "Step_4a_Log_Updated_Employees": ["Succeeded"]
+                  },
+                  "foreach": "@body('Step_3_Filter_Last_Updated_Employees')?['employees']",
+                  "runtimeConfiguration": {
+                    "concurrency": { "repetitions": 10 }
+                  },
+                  "actions": {
+                    "Log_Employee_Record": {
+                      "type": "Compose",
+                      "runAfter": {},
+                      "inputs": {
+                        "employeeId": "@items('Step_4b_For_Each_Employee_Placeholder')?['employeeId']",
+                        "employmentNumber": "@items('Step_4b_For_Each_Employee_Placeholder')?['employmentNumber']",
+                        "accountStatus": "@items('Step_4b_For_Each_Employee_Placeholder')?['accountStatus']",
+                        "employmentStatus": "@items('Step_4b_For_Each_Employee_Placeholder')?['employmentStatus']",
+                        "lastUpdated": "@items('Step_4b_For_Each_Employee_Placeholder')?['lastUpdated']",
+                        "companyEmail": "@items('Step_4b_For_Each_Employee_Placeholder')?['companyEmail']",
+                        "phase": "Downstream dispatch pending — Phase 2"
+                      }
+                    }
+                  }
+                }
+
+              },
+
+              "else": {
+                "actions": {
+                  "Log_No_Updates": {
+                    "type": "Compose",
+                    "runAfter": {},
+                    "inputs": {
+                      "runTime": "@utcNow()",
+                      "message": "No employee records updated in the last 6 hours. No downstream action required.",
+                      "totalReceived": "@body('Step_3_Filter_Last_Updated_Employees')?['totalReceived']"
+                    }
+                  }
+                }
+              }
+            }
+
+          },
+          "outputs": {}
+        }
+      }
+    }
+  ],
+
+  "outputs": {
+    "logicAppResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Logic/workflows', parameters('logicAppName'))]"
+    },
+    "managedIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Logic/workflows', parameters('logicAppName')), '2019-05-01', 'full').identity.principalId]"
+    }
+  }
+}

@@ -17,32 +17,25 @@ builder.Services
 builder.Services.AddScoped<IEmployeeFilterService, EmployeeFilterService>();
 builder.Services.AddScoped<IEmployeeMappingService, EmployeeMappingService>();
 
-// Downstream services — each gets its own named HttpClient for independent BaseAddress + retry config
-builder.Services
-    .AddHttpClient<IPrimulaService, PrimulaService>(client =>
-    {
-        client.BaseAddress = new Uri(
-            builder.Configuration["Primula:BaseUrl"]
-            ?? throw new InvalidOperationException("Primula:BaseUrl is required."));
-    });
+// Hailey HR API — the only live integration in Phase 1
+builder.Services.AddHttpClient<IHaileyApiService, HaileyApiService>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Hailey:BaseUrl"]
+        ?? throw new InvalidOperationException("Hailey:BaseUrl is required in local.settings.json."));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
-builder.Services
-    .AddHttpClient<IQuinyxService, QuinyxService>(client =>
-    {
-        client.BaseAddress = new Uri(
-            builder.Configuration["Quinyx:BaseUrl"]
-            ?? throw new InvalidOperationException("Quinyx:BaseUrl is required."));
-    });
+// Downstream services — not yet live; placeholder URLs used locally, real URLs added in Phase 2
+builder.Services.AddHttpClient<IPrimulaService, PrimulaService>(client =>
+    client.BaseAddress = new Uri(builder.Configuration["Primula:BaseUrl"] ?? "https://placeholder.invalid/"));
 
-builder.Services
-    .AddHttpClient<ILearnifyService, LearnifyService>(client =>
-    {
-        client.BaseAddress = new Uri(
-            builder.Configuration["Learnify:BaseUrl"]
-            ?? throw new InvalidOperationException("Learnify:BaseUrl is required."));
-    });
+builder.Services.AddHttpClient<IQuinyxService, QuinyxService>(client =>
+    client.BaseAddress = new Uri(builder.Configuration["Quinyx:BaseUrl"] ?? "https://placeholder.invalid/"));
 
-builder.Services
-    .AddHttpClient<IIdentityProvisioningService, IdentityProvisioningService>();
+builder.Services.AddHttpClient<ILearnifyService, LearnifyService>(client =>
+    client.BaseAddress = new Uri(builder.Configuration["Learnify:BaseUrl"] ?? "https://placeholder.invalid/"));
+
+builder.Services.AddHttpClient<IIdentityProvisioningService, IdentityProvisioningService>();
 
 builder.Build().Run();
