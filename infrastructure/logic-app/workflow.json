@@ -1,0 +1,260 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "logicAppName": { "type": "string", "defaultValue": "la-hailey-hr-sync" },
+    "location": { "type": "string", "defaultValue": "[resourceGroup().location]" },
+    "keyVaultName": { "type": "string" },
+    "haileyApiBaseUrl": { "type": "string" },
+    "functionAppBaseUrl": { "type": "string" },
+    "functionAppKey": { "type": "securestring" }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2019-05-01",
+      "name": "[parameters('logicAppName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "state": "Enabled",
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {
+            "keyVaultName": {
+              "defaultValue": "[parameters('keyVaultName')]",
+              "type": "String"
+            },
+            "haileyApiBaseUrl": {
+              "defaultValue": "[parameters('haileyApiBaseUrl')]",
+              "type": "String"
+            },
+            "functionAppBaseUrl": {
+              "defaultValue": "[parameters('functionAppBaseUrl')]",
+              "type": "String"
+            },
+            "functionAppKey": {
+              "defaultValue": "[parameters('functionAppKey')]",
+              "type": "SecureString"
+            }
+          },
+          "triggers": {
+            "Every_6_Hours": {
+              "type": "Recurrence",
+              "recurrence": {
+                "frequency": "Hour",
+                "interval": 6,
+                "startTime": "2026-01-01T00:00:00Z",
+                "timeZone": "UTC"
+              }
+            }
+          },
+          "actions": {
+
+            "Step_1_Get_Hailey_API_Key_From_KeyVault": {
+              "type": "Http",
+              "runAfter": {},
+              "inputs": {
+                "method": "GET",
+                "uri": "@{concat('https://', parameters('keyVaultName'), '.vault.azure.net/secrets/HaileyApiKey?api-version=7.4')}",
+                "authentication": {
+                  "type": "ManagedServiceIdentity",
+                  "audience": "https://vault.azure.net"
+                }
+              }
+            },
+
+            "Step_2_Call_Hailey_Employee_API": {
+              "type": "Http",
+              "runAfter": {
+                "Step_1_Get_Hailey_API_Key_From_KeyVault": ["Succeeded"]
+              },
+              "inputs": {
+                "method": "GET",
+                "uri": "@{concat(parameters('haileyApiBaseUrl'), '/v1/employees')}",
+                "headers": {
+                  "Authorization": "@{concat('Bearer ', body('Step_1_Get_Hailey_API_Key_From_KeyVault')?['value'])}",
+                  "Accept": "application/json",
+                  "Content-Type": "application/json"
+                }
+              }
+            },
+
+            "Step_3_Filter_Last_Updated_Employees": {
+              "type": "Http",
+              "runAfter": {
+                "Step_2_Call_Hailey_Employee_API": ["Succeeded"]
+              },
+              "inputs": {
+                "method": "POST",
+                "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/employees/filter')}",
+                "headers": {
+                  "x-functions-key": "@parameters('functionAppKey')",
+                  "Content-Type": "application/json"
+                },
+                "body": {
+                  "employees": "@body('Step_2_Call_Hailey_Employee_API')",
+                  "windowHours": 6
+                }
+              }
+            },
+
+            "Step_4_Check_If_Any_Employees_Updated": {
+              "type": "If",
+              "runAfter": {
+                "Step_3_Filter_Last_Updated_Employees": ["Succeeded"]
+              },
+              "expression": {
+                "and": [
+                  {
+                    "greater": [
+                      "@body('Step_3_Filter_Last_Updated_Employees')?['filteredCount']",
+                      0
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+
+                "Step_4a_For_Each_Updated_Employee": {
+                  "type": "Foreach",
+                  "foreach": "@body('Step_3_Filter_Last_Updated_Employees')?['employees']",
+                  "runtimeConfiguration": {
+                    "concurrency": {
+                      "repetitions": 10
+                    }
+                  },
+                  "actions": {
+
+                    "Determine_Employee_Status": {
+                      "type": "If",
+                      "runAfter": {},
+                      "expression": {
+                        "or": [
+                          { "equals": ["@toLower(items('Step_4a_For_Each_Updated_Employee')?['accountStatus'])", "active"] },
+                          { "equals": ["@toLower(items('Step_4a_For_Each_Updated_Employee')?['employmentStatus'])", "active"] }
+                        ]
+                      },
+
+                      "actions": {
+                        "Sync_To_Primula": {
+                          "type": "Http",
+                          "runAfter": {},
+                          "inputs": {
+                            "method": "POST",
+                            "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/sync/primula')}",
+                            "headers": {
+                              "x-functions-key": "@parameters('functionAppKey')",
+                              "Content-Type": "application/json"
+                            },
+                            "body": "@items('Step_4a_For_Each_Updated_Employee')"
+                          }
+                        },
+                        "Sync_To_Quinyx": {
+                          "type": "Http",
+                          "runAfter": {},
+                          "inputs": {
+                            "method": "POST",
+                            "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/sync/quinyx')}",
+                            "headers": {
+                              "x-functions-key": "@parameters('functionAppKey')",
+                              "Content-Type": "application/json"
+                            },
+                            "body": "@items('Step_4a_For_Each_Updated_Employee')"
+                          }
+                        },
+                        "Sync_To_Learnify": {
+                          "type": "Http",
+                          "runAfter": {},
+                          "inputs": {
+                            "method": "POST",
+                            "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/sync/learnify')}",
+                            "headers": {
+                              "x-functions-key": "@parameters('functionAppKey')",
+                              "Content-Type": "application/json"
+                            },
+                            "body": "@items('Step_4a_For_Each_Updated_Employee')"
+                          }
+                        },
+                        "Provision_Identity": {
+                          "type": "Http",
+                          "runAfter": {},
+                          "inputs": {
+                            "method": "POST",
+                            "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/identity/provision')}",
+                            "headers": {
+                              "x-functions-key": "@parameters('functionAppKey')",
+                              "Content-Type": "application/json"
+                            },
+                            "body": "@items('Step_4a_For_Each_Updated_Employee')"
+                          }
+                        }
+                      },
+
+                      "else": {
+                        "actions": {
+                          "Deprovision_Identity_On_Termination": {
+                            "type": "Http",
+                            "runAfter": {},
+                            "inputs": {
+                              "method": "POST",
+                              "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/identity/provision')}",
+                              "headers": {
+                                "x-functions-key": "@parameters('functionAppKey')",
+                                "Content-Type": "application/json"
+                              },
+                              "body": "@items('Step_4a_For_Each_Updated_Employee')"
+                            }
+                          },
+                          "Sync_Termination_To_Primula": {
+                            "type": "Http",
+                            "runAfter": {},
+                            "inputs": {
+                              "method": "POST",
+                              "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/sync/primula')}",
+                              "headers": {
+                                "x-functions-key": "@parameters('functionAppKey')",
+                                "Content-Type": "application/json"
+                              },
+                              "body": "@items('Step_4a_For_Each_Updated_Employee')"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
+              },
+              "else": {
+                "actions": {
+                  "Log_No_Updates": {
+                    "type": "Compose",
+                    "inputs": {
+                      "message": "No employee records updated in the last 6 hours.",
+                      "runTime": "@utcNow()"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "outputs": {}
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "logicAppResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Logic/workflows', parameters('logicAppName'))]"
+    },
+    "managedIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Logic/workflows', parameters('logicAppName')), '2019-05-01', 'full').identity.principalId]"
+    }
+  }
+}
