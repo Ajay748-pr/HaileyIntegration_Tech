@@ -124,6 +124,9 @@ public sealed class HaileyEmployee
     [JsonPropertyName("personalIdentityNumber")]
     public string? PersonalIdentityNumber { get; set; }
 
+    [JsonPropertyName("companyName")]
+    public string? CompanyName { get; set; }
+
     [JsonPropertyName("privateEmail")]
     public string? PrivateEmail { get; set; }
 

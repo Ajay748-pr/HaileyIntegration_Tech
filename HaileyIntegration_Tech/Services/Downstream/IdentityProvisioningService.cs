@@ -93,9 +93,8 @@ public sealed class IdentityProvisioningService(
         var tenantDomain = config["EntraId:TenantDomain"]
             ?? throw new InvalidOperationException("EntraId:TenantDomain is not configured.");
 
-        var upn = employee.CompanyEmail!.Contains('@')
-            ? employee.CompanyEmail
-            : $"{employee.CompanyEmail}@{tenantDomain}";
+        // UPN uses employment number (pers.nr@domain) per architecture field mapping
+        var upn = $"{employee.EmployeeNumber}@{tenantDomain}";
 
         var body = new
         {
@@ -104,15 +103,21 @@ public sealed class IdentityProvisioningService(
             givenName = employee.FirstName,
             surname = employee.LastName,
             userPrincipalName = upn,
-            mail = upn,
+            mailNickname = employee.EmployeeNumber,  // becomes sAMAccountName in local AD via Entra Connect
+            mail = employee.CompanyEmail,
             employeeId = employee.EmployeeNumber,
+            companyName = employee.CompanyName,
             department = employee.DepartmentId?.ToString(),
             jobTitle = string.Join(", ", employee.TitleIds ?? []),
             mobilePhone = employee.WorkPhone,
+            onPremisesExtensionAttributes = new
+            {
+                extensionAttribute1 = employee.EndDate?.ToString("yyyy-MM-dd"),  // accountExpires in local AD
+                extensionAttribute2 = employee.PersonalIdentityNumber             // SSN / social security number
+            },
             passwordProfile = new
             {
                 forceChangePasswordNextSignIn = true,
-                // Temporary password — employee must reset on first login
                 password = GenerateTemporaryPassword()
             }
         };
@@ -137,9 +142,17 @@ public sealed class IdentityProvisioningService(
             displayName = employee.DisplayName,
             givenName = employee.FirstName,
             surname = employee.LastName,
+            mail = employee.CompanyEmail,
+            companyName = employee.CompanyName,
             department = employee.DepartmentId?.ToString(),
+            jobTitle = string.Join(", ", employee.TitleIds ?? []),
             mobilePhone = employee.WorkPhone,
-            accountEnabled = employee.AccountStatus?.ToLowerInvariant() == "active"
+            accountEnabled = employee.AccountStatus?.ToLowerInvariant() == "active",
+            onPremisesExtensionAttributes = new
+            {
+                extensionAttribute1 = employee.EndDate?.ToString("yyyy-MM-dd"),
+                extensionAttribute2 = employee.PersonalIdentityNumber
+            }
         };
 
         var response = await http.PatchAsJsonAsync($"{GraphBaseUrl}/users/{userId}", patch, ct);

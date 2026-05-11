@@ -14,6 +14,7 @@ public sealed class CanonicalEmployee
     public string? Gender { get; set; }
     public string? DateOfBirth { get; set; }
     public string? PersonalIdentityNumber { get; set; }
+    public string? CompanyName { get; set; }
 
     // Employment
     public string? EmploymentType { get; set; }

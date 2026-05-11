@@ -22,6 +22,7 @@ public sealed class EmployeeMappingService : IEmployeeMappingService
             Gender = source.Gender,
             DateOfBirth = source.DateOfBirth,
             PersonalIdentityNumber = source.PersonalIdentityNumber,
+            CompanyName = source.CompanyName,
             EmploymentType = source.EmploymentType,
             EmploymentStatus = source.EmploymentStatus,
             AccountStatus = source.AccountStatus,
