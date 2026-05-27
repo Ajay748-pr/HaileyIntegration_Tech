@@ -1,3 +1,4 @@
+using HaileyIntegration.Tech.Models.Dto;
 using HaileyIntegration.Tech.Services;
 using HaileyIntegration.Tech.Services.Downstream;
 using Microsoft.Azure.Functions.Worker;
@@ -32,7 +33,12 @@ builder.Services
         client.BaseAddress = new Uri(
             builder.Configuration["Quinyx:BaseUrl"]
             ?? throw new InvalidOperationException("Quinyx:BaseUrl is required."));
-    });
+    })
+    .Services
+    .AddSingleton(_ =>
+        new QuinyxOptions(
+            builder.Configuration["Quinyx:ApiKey"]
+            ?? throw new InvalidOperationException("Quinyx:ApiKey is required.")));
 
 builder.Services
     .AddHttpClient<ILearnifyService, LearnifyService>(client =>
