@@ -9,4 +9,11 @@ public interface IQuinyxService
     Task<SyncResult> SyncEmployeeAsync(CanonicalEmployee employee, CancellationToken ct = default);
     Task<IReadOnlyList<QuinyxRestaurant>> GetRestaurantsAsync(string changedSince, CancellationToken ct = default);
     Task<SyncResult> UpdateEmployeeAsync(UpdateEmployee employee, CancellationToken ct = default);
+
+    Task<SyncResult> UpdateAgreementAsync(
+    UpdateAgreementV2 agreement,
+    CancellationToken ct = default);
+    Task<SyncResult> MoveEmployeeAsync(
+    moveEmployee employee,
+    CancellationToken ct = default);
 }

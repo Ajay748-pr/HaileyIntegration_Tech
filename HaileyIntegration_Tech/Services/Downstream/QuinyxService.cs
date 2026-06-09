@@ -182,4 +182,185 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
             };
         }
     }
+
+
+    public async Task<SyncResult> UpdateAgreementAsync(
+    UpdateAgreementV2 agreement,
+    CancellationToken ct = default)
+    {
+        logger.LogInformation(
+            "UpdateAgreementAsync starting for badgeNo={BadgeNo}",
+            agreement.badgeNo);
+
+        var client = new FlexForcePortTypeClient();
+
+        try
+        {
+            logger.LogInformation(
+                "Triggering SOAP wsdlUpdateAgreementsV2 for badgeNo={BadgeNo}",
+                agreement.badgeNo);
+
+            var response =
+                await client.wsdlUpdateAgreementsV2Async(
+                    options.ApiKey,
+                    [agreement]);
+
+            await client.CloseAsync();
+
+            var returned = response.@return;
+
+            if (returned == null || returned.Length == 0)
+            {
+                logger.LogWarning(
+                    "Quinyx returned empty response for badgeNo={BadgeNo}",
+                    agreement.badgeNo);
+
+                return new SyncResult
+                {
+                    Success = false,
+                    EmployeeNumber = agreement.badgeNo,
+                    TargetSystem = "Quinyx",
+                    ErrorCode = "EMPTY_RESPONSE",
+                    Message = "No agreement records returned from Quinyx."
+                };
+            }
+
+            var updatedAgreement = returned.First();
+
+            if (updatedAgreement.validationErrors?.Length > 0)
+            {
+                var validationMessage =
+                    string.Join(", ", updatedAgreement.validationErrors);
+
+                logger.LogWarning(
+                    "Agreement validation failed for badgeNo={BadgeNo}. Errors={Errors}",
+                    agreement.badgeNo,
+                    validationMessage);
+
+                return new SyncResult
+                {
+                    Success = false,
+                    EmployeeNumber = agreement.badgeNo,
+                    TargetSystem = "Quinyx",
+                    ErrorCode = "VALIDATION_ERROR",
+                    Message = validationMessage
+                };
+            }
+
+            logger.LogInformation(
+                "Agreement updated successfully for badgeNo={BadgeNo}",
+                agreement.badgeNo);
+
+            return new SyncResult
+            {
+                Success = true,
+                EmployeeNumber = agreement.badgeNo,
+                TargetSystem = "Quinyx",
+                Message = "Agreement updated successfully."
+            };
+        }
+        catch (Exception ex)
+        {
+            client.Abort();
+
+            logger.LogError(
+                ex,
+                "SOAP wsdlUpdateAgreementsV2 failed for badgeNo={BadgeNo}",
+                agreement?.badgeNo);
+
+            logger.LogError(
+                "Full Exception: {Exception}",
+                ex.ToString());
+
+            return new SyncResult
+            {
+                Success = false,
+                EmployeeNumber = agreement?.badgeNo,
+                TargetSystem = "Quinyx",
+                ErrorCode = "EXCEPTION",
+                Message = ex.ToString() // temporary for debugging
+            };
+        }
+
+
+
+    }
+
+    public async Task<SyncResult> MoveEmployeeAsync(
+    moveEmployee employee,
+    CancellationToken ct = default)
+    {
+        var client = new FlexForcePortTypeClient();
+
+        try
+        {
+            logger.LogInformation(
+                "Triggering wsdlMoveEmployees for badgeNo={BadgeNo}",
+                employee.badgeNo);
+
+            var response =
+                await client.wsdlMoveEmployeesAsync(
+                    options.ApiKey,
+                    [employee]);
+
+            await client.CloseAsync();
+
+            var returned = response.@return;
+
+            if (returned == null || returned.Length == 0)
+            {
+                return new SyncResult
+                {
+                    Success = false,
+                    EmployeeNumber = employee.badgeNo,
+                    TargetSystem = "Quinyx",
+                    ErrorCode = "EMPTY_RESPONSE",
+                    Message = "No move response returned from Quinyx."
+                };
+            }
+
+            var movedEmployee = returned.First();
+
+            if (movedEmployee.validationErrors?.Length > 0)
+            {
+                return new SyncResult
+                {
+                    Success = false,
+                    EmployeeNumber = employee.badgeNo,
+                    TargetSystem = "Quinyx",
+                    ErrorCode = "VALIDATION_ERROR",
+                    Message = string.Join(
+                        ", ",
+                        movedEmployee.validationErrors)
+                };
+            }
+
+            return new SyncResult
+            {
+                Success = true,
+                EmployeeNumber = employee.badgeNo,
+                TargetSystem = "Quinyx",
+                Message =
+                    $"Move scheduled successfully. MoveId={movedEmployee.moveId}"
+            };
+        }
+        catch (Exception ex)
+        {
+            client.Abort();
+
+            logger.LogError(
+                ex,
+                "MoveEmployee failed for badgeNo={BadgeNo}",
+                employee.badgeNo);
+
+            return new SyncResult
+            {
+                Success = false,
+                EmployeeNumber = employee.badgeNo,
+                TargetSystem = "Quinyx",
+                ErrorCode = "EXCEPTION",
+                Message = ex.Message
+            };
+        }
+    }
 }
