@@ -12,6 +12,7 @@ public sealed class FilterEmployeesFunction(
     IEmployeeFilterService filterService,
     ILogger<FilterEmployeesFunction> logger)
 {
+
     [Function(nameof(FilterEmployeesFunction))]
     public async Task<HttpResponseData> Run(
         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "employees/filter")] HttpRequestData req,
