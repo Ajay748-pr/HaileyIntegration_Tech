@@ -31,7 +31,7 @@ public sealed class SyncToQuinyxFunction(
         {
             logger.LogWarning("Invalid Quinyx sync request: {Message}", ex.Message);
             var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync(ex.Message, ct);
+            await bad.WriteStringAsync(ex.Message, ct); 
             return bad;
         }
 
