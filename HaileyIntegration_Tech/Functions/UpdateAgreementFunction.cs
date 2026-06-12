@@ -35,17 +35,21 @@ public sealed class UpdateAgreementFunction(
         if (agreement is null)
         {
             var bad = req.CreateResponse(HttpStatusCode.BadRequest);
+            await bad.WriteStringAsync("A valid HaileyAgreement payload is required.", ct);
+            return bad;
+        }
 
-            await bad.WriteStringAsync(
-                "A valid HaileyAgreement payload is required.",
-                ct);
-
+        if (string.IsNullOrWhiteSpace(agreement.EmploymentNumber))
+        {
+            logger.LogWarning("Missing required field: employmentNumber.");
+            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
+            await bad.WriteStringAsync("employmentNumber is required.", ct);
             return bad;
         }
 
         logger.LogInformation(
-            "Received agreement request for EmployeeNumber={EmployeeNumber}",
-            agreement.EmploymentNumber);
+            "Received agreement request for EmployeeNumber={EmployeeNumber} EmploymentType={EmploymentType} ScopeHours={ScopeHours} ScopePercentage={ScopePercentage}",
+            agreement.EmploymentNumber, agreement.EmploymentType, agreement.ScopeHours, agreement.EmploymentRate);
 
         var quinyxAgreement =
             MapToQuinyxAgreement(agreement);
@@ -89,59 +93,82 @@ public sealed class UpdateAgreementFunction(
         }
     }
 
-    private UpdateAgreementV2 MapToQuinyxAgreement(
-        HaileyAgreement src)
+    private UpdateAgreementV2 MapToQuinyxAgreement(HaileyAgreement src)
     {
         var dest = new UpdateAgreementV2
         {
-            badgeNo = src.EmploymentNumber,
-            extAgreementId = src.ExternalAgreementId,
-            extTemplateId = src.ExternalTemplateId
+            badgeNo          = src.EmploymentNumber,
+            extAgreementId   = src.ExternalAgreementId,
+            extTemplateId    = src.ExternalTemplateId,
+            name             = src.Name,
+            comment          = src.Comment,
+            additionalField1 = src.AdditionalField1,
+            additionalField2 = src.AdditionalField2,
+            additionalField3 = src.AdditionalField3,
+            additionalField4 = src.AdditionalField4,
+            additionalField5 = src.AdditionalField5,
+
+            // Always the primary agreement, never hourly
+            isMainAgreement          = true,
+            isMainAgreementSpecified = true,
+            hourly                   = false,
+            hourlySpecified          = true,
+
+            // Standard full-time week is 40 hrs; contracted hours come from scopeHours
+            fullEmploymentHrs          = 40m,
+            fullEmploymentHrsSpecified = true,
         };
 
+        // fromDate → dateOfJoining
         if (src.FromDate.HasValue)
         {
-            dest.fromDate =
-                src.FromDate.Value.ToDateTime(TimeOnly.MinValue);
-
+            dest.fromDate          = src.FromDate.Value.ToDateTime(TimeOnly.MinValue);
             dest.fromDateSpecified = true;
         }
 
+        // expires + toDate derived from employmentType
+        // Permanent  → expires = false, no toDate
+        // FixedTerm  → expires = true,  toDate = ToDate (endOfFixedTerm from Logic App)
+        // ProbationaryPeriod → expires = true, toDate = ToDate (endOfProbationaryPeriod from Logic App)
+        var isFixedTerm = src.EmploymentType is "FixedTerm" or "ProbationaryPeriod";
+
+        dest.expires          = src.Expires ?? isFixedTerm;
+        dest.expiresSpecified = true;
+
         if (src.ToDate.HasValue)
         {
-            dest.toDate =
-                src.ToDate.Value.ToDateTime(TimeOnly.MinValue);
-
+            dest.toDate          = src.ToDate.Value.ToDateTime(TimeOnly.MinValue);
             dest.toDateSpecified = true;
         }
 
-        if (src.Expires.HasValue)
+        // minHrsWeek → scopeHours (actual contracted hours/week)
+        if (src.ScopeHours.HasValue)
         {
-            dest.expires = src.Expires.Value;
-            dest.expiresSpecified = true;
+            dest.minHrsWeek          = src.ScopeHours.Value;
+            dest.minHrsWeekSpecified = true;
         }
 
-        if (src.EmploymentRate.HasValue &&
-            src.FromDate.HasValue)
+        // employmentRatesAdd → scopePercentage + fromDate
+        if (src.EmploymentRate.HasValue && src.FromDate.HasValue)
         {
             dest.employmentRatesAdd =
             [
                 new EmploymentRate
                 {
                     fromDate = src.FromDate.Value.ToDateTime(TimeOnly.MinValue),
-                    rate = src.EmploymentRate.Value
+                    rate     = src.EmploymentRate.Value
                 }
             ];
         }
 
-        if (src.HourlySalary.HasValue &&
-            src.FromDate.HasValue)
+        // salariesAdd → hourlySalary + fromDate
+        if (src.HourlySalary.HasValue && src.FromDate.HasValue)
         {
             dest.salariesAdd =
             [
                 new AgreementSalary
                 {
-                    fromDate = src.FromDate.Value.ToDateTime(TimeOnly.MinValue),
+                    fromDate     = src.FromDate.Value.ToDateTime(TimeOnly.MinValue),
                     hourlySalary = src.HourlySalary.Value
                 }
             ];

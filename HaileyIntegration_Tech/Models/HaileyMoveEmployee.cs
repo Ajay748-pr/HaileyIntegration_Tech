@@ -27,7 +27,4 @@ public sealed class HaileyMoveEmployee
 
     [JsonPropertyName("costCentre")]
     public string? CostCentre { get; set; }
-
-    [JsonPropertyName("moveId")]
-    public string? MoveId { get; set; }
 }

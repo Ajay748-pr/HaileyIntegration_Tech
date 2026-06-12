@@ -156,4 +156,12 @@ public sealed class HaileyEmployee
 
     [JsonPropertyName("employmentSequenceNumber")]
     public string? EmploymentSequenceNumber { get; set; }
+
+    // Resolved by Logic App before calling this function
+    [JsonPropertyName("reportingTo")]
+    public string? ReportingTo { get; set; }
+
+    // Resolved by Logic App: costCenterId GUID → getCompany.costCenters[].code
+    [JsonPropertyName("extCostCentre")]
+    public string? ExtCostCentre { get; set; }
 }

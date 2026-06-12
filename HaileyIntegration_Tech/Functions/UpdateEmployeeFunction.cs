@@ -37,6 +37,14 @@ public sealed class UpdateEmployeeFunction(
             return bad;
         }
 
+        if (string.IsNullOrWhiteSpace(employee.EmploymentNumber))
+        {
+            logger.LogWarning("Missing required field: employmentNumber.");
+            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
+            await bad.WriteStringAsync("employmentNumber is required.", ct);
+            return bad;
+        }
+
         logger.LogInformation(
             "Received update request for employee {EmploymentNumber} (HaileyId={HaileyId})",
             employee.EmploymentNumber, employee.EmployeeId);
@@ -82,15 +90,25 @@ public sealed class UpdateEmployeeFunction(
 
     // ─── Step 2: Map HaileyEmployee → Quinyx UpdateEmployee ──────────────────
     // Field mapping per Attribute_Mapping.xlsx:
-    //   firstName + lastName  → givenName + familyName
-    //   companyEmail          → email
-    //   workPhone             → phoneNo
-    //   employmentNumber      → badgeNo
-    //   dateOfJoining         → employedDate
-    //   lastDayOfEmployment   → leaveDate
-    //   personalIdentityNumber→ socsecNo
-    //   dateOfBirth           → dateOfBirth
-    //   accountStatus         → active  (1 = active, 0 = inactive)
+    //   firstName + lastName   → givenName + familyName
+    //   companyEmail           → email
+    //   workPhone              → phoneNo
+    //   privatePhone           → cellPhone
+    //   employmentNumber       → badgeNo
+    //   dateOfJoining          → employedDate
+    //   lastDayOfEmployment    → leaveDate
+    //   personalIdentityNumber → socsecNo
+    //   dateOfBirth            → dateOfBirth
+    //   accountStatus          → active  (1 = active, 0 = inactive)
+    //   streetAddress          → address1
+    //   postalCode             → zip
+    //   city                   → city
+    //   country                → country
+    //   iceName                → nextOfKind
+    //   icePhone               → nextPhone
+    //   customFieldsData       → additionalFields
+    //   reportingTo            → reportingTo  (Logic App resolves managerEmployeeId → employmentNumber)
+    //   extCostCentre          → extCostCentre (Logic App resolves costCenterId → costCenter.code)
 
     private UpdateEmployee MapToQuinyxEmployee(HaileyEmployee src)
     {
@@ -99,12 +117,21 @@ public sealed class UpdateEmployeeFunction(
 
         var dest = new UpdateEmployee
         {
-            badgeNo     = src.EmploymentNumber,
-            givenName   = src.FirstName,
-            familyName  = src.LastName,
-            email       = src.CompanyEmail,
-            phoneNo     = src.WorkPhone,
-            socsecNo    = src.PersonalIdentityNumber,
+            badgeNo      = src.EmploymentNumber,
+            givenName    = src.FirstName,
+            familyName   = src.LastName,
+            email        = src.CompanyEmail,
+            phoneNo      = src.WorkPhone,
+            cellPhone    = src.PrivatePhone,
+            socsecNo     = src.PersonalIdentityNumber,
+            address1     = src.StreetAddress,
+            zip          = src.PostalCode,
+            city         = src.City,
+            country      = src.Country,
+            nextOfKind   = src.IceName,
+            nextPhone    = src.IcePhone,
+            reportingTo  = src.ReportingTo,
+            extCostCentre = src.ExtCostCentre,
         };
 
         // dateOfBirth is a string in Hailey; parse to DateTime for SOAP
@@ -134,6 +161,15 @@ public sealed class UpdateEmployeeFunction(
         {
             dest.active          = string.Equals(src.AccountStatus, "active", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
             dest.activeSpecified = true;
+        }
+
+        // customFieldsData → additionalFields (one entry per key-value pair)
+        if (src.CustomFieldsData?.Count > 0)
+        {
+            dest.additionalFields = src.CustomFieldsData
+                .SelectMany(kvp => kvp.Value
+                    .Select(v => new AdditionalFieldData { key = kvp.Key, value = v }))
+                .ToArray();
         }
 
         logger.LogDebug(
