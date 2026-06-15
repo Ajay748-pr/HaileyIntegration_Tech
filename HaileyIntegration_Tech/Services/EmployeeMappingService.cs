@@ -37,7 +37,6 @@ public sealed class EmployeeMappingService : IEmployeeMappingService
             TeamIds = source.TeamIds,
             ScopePercentage = source.ScopePercentage,
             ScopeHours = source.ScopeHours,
-            VacationDays = source.VacationDays,
             FixedTermType = source.FixedTermType,
             EndOfFixedTerm = source.EndOfFixedTerm,
             EndOfProbationaryPeriod = source.EndOfProbationaryPeriod,

@@ -20,14 +20,6 @@ builder.Services.AddScoped<IEmployeeMappingService, EmployeeMappingService>();
 
 // Downstream services — each gets its own named HttpClient for independent BaseAddress + retry config
 builder.Services
-    .AddHttpClient<IPrimulaService, PrimulaService>(client =>
-    {
-        client.BaseAddress = new Uri(
-            builder.Configuration["Primula:BaseUrl"]
-            ?? throw new InvalidOperationException("Primula:BaseUrl is required."));
-    });
-
-builder.Services
     .AddHttpClient<IQuinyxService, QuinyxService>(client =>
     {
         client.BaseAddress = new Uri(
@@ -41,11 +33,17 @@ builder.Services
             ?? throw new InvalidOperationException("Quinyx:ApiKey is required.")));
 
 builder.Services
-    .AddHttpClient<ILearnifyService, LearnifyService>(client =>
+    .AddHttpClient<IHaileyService, HaileyService>(client =>
     {
         client.BaseAddress = new Uri(
-            builder.Configuration["Learnify:BaseUrl"]
-            ?? throw new InvalidOperationException("Learnify:BaseUrl is required."));
+            builder.Configuration["Hailey:BaseUrl"]
+            ?? throw new InvalidOperationException("Hailey:BaseUrl is required."));
+
+        var apiKey = builder.Configuration["Hailey:ApiKey"]
+            ?? throw new InvalidOperationException("Hailey:ApiKey is required.");
+
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
     });
 
 builder.Services

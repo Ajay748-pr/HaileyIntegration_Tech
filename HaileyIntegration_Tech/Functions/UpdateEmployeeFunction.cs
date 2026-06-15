@@ -167,8 +167,30 @@ public sealed class UpdateEmployeeFunction(
         if (src.CustomFieldsData?.Count > 0)
         {
             dest.additionalFields = src.CustomFieldsData
-                .SelectMany(kvp => kvp.Value
-                    .Select(v => new AdditionalFieldData { key = kvp.Key, value = v }))
+                .SelectMany(kvp =>
+                {
+                    var values = new List<string>();
+                    if (kvp.Value.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var element in kvp.Value.EnumerateArray())
+                        {
+                            if (element.ValueKind == JsonValueKind.String)
+                                values.Add(element.GetString()!);
+                            else
+                                values.Add(element.ToString());
+                        }
+                    }
+                    else if (kvp.Value.ValueKind == JsonValueKind.String)
+                    {
+                        values.Add(kvp.Value.GetString()!);
+                    }
+                    else if (kvp.Value.ValueKind != JsonValueKind.Null && kvp.Value.ValueKind != JsonValueKind.Undefined)
+                    {
+                        values.Add(kvp.Value.ToString());
+                    }
+
+                    return values.Select(v => new AdditionalFieldData { key = kvp.Key, value = v });
+                })
                 .ToArray();
         }
 
