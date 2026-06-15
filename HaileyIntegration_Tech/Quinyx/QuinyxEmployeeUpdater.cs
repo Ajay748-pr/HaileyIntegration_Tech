@@ -5,11 +5,11 @@ using HaileyIntegration.Tech.Services.Downstream;
 using Microsoft.Extensions.Logging;
 using ServiceReference1;
 
-namespace HaileyIntegration.Tech.Functions;
+namespace HaileyIntegration.Tech.Quinyx;
 
-public sealed class UpdateEmployeeFunction(
+public sealed class QuinyxEmployeeUpdater(
     IQuinyxService quinyxService,
-    ILogger<UpdateEmployeeFunction> logger)
+    ILogger<QuinyxEmployeeUpdater> logger)
 {
     public async Task<SyncResult> ExecuteAsync(HaileyEmployee employee, CancellationToken ct = default)
     {

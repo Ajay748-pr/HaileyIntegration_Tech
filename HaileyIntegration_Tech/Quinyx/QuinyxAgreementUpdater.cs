@@ -3,11 +3,11 @@ using HaileyIntegration.Tech.Services.Downstream;
 using Microsoft.Extensions.Logging;
 using ServiceReference1;
 
-namespace HaileyIntegration.Tech.Functions;
+namespace HaileyIntegration.Tech.Quinyx;
 
-public sealed class UpdateAgreementFunction(
+public sealed class QuinyxAgreementUpdater(
     IQuinyxService quinyxService,
-    ILogger<UpdateAgreementFunction> logger)
+    ILogger<QuinyxAgreementUpdater> logger)
 {
     public async Task<SyncResult> ExecuteAsync(HaileyAgreement agreement, CancellationToken ct = default)
     {

@@ -2,7 +2,7 @@ using System.Net;
 using System.Text.Json;
 using HaileyIntegration.Tech.Models;
 using HaileyIntegration.Tech.Models.Dto;
-using HaileyIntegration.Tech.Services.Downstream;
+using HaileyIntegration.Tech.Quinyx;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -10,8 +10,8 @@ using Microsoft.Extensions.Logging;
 namespace HaileyIntegration.Tech.Functions;
 
 public sealed class SyncToQuinyxFunction(
-    UpdateEmployeeFunction updateEmployee,
-    UpdateAgreementFunction updateAgreement,
+    QuinyxEmployeeUpdater employeeUpdater,
+    QuinyxAgreementUpdater agreementUpdater,
     ILogger<SyncToQuinyxFunction> logger)
 {
     private static readonly JsonSerializerOptions JsonOpts =
@@ -51,7 +51,7 @@ public sealed class SyncToQuinyxFunction(
             employee.EmploymentNumber);
 
         // Step 1 — UpdateEmployee
-        var empResult = await updateEmployee.ExecuteAsync(employee, ct);
+        var empResult = await employeeUpdater.ExecuteAsync(employee, ct);
 
         if (!empResult.Success)
         {
@@ -70,7 +70,7 @@ public sealed class SyncToQuinyxFunction(
 
         // Step 2 — UpdateAgreement (derived from the same employee payload)
         var agreement = BuildAgreement(employee);
-        var agreeResult = await updateAgreement.ExecuteAsync(agreement, ct);
+        var agreeResult = await agreementUpdater.ExecuteAsync(agreement, ct);
 
         var status = agreeResult.Success ? HttpStatusCode.OK : HttpStatusCode.UnprocessableEntity;
         var response = req.CreateResponse(status);
@@ -82,7 +82,6 @@ public sealed class SyncToQuinyxFunction(
         return response;
     }
 
-    // Derives agreement fields from the HaileyEmployee payload
     private static HaileyAgreement BuildAgreement(HaileyEmployee src) => new()
     {
         EmploymentNumber = src.EmploymentNumber,
