@@ -9,6 +9,9 @@
     <RootNamespace>HaileyIntegration.Tech</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="local.settings.json" />
+  </ItemGroup>
+  <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <!-- Azure Functions core -->
     <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="2.23.0" />

@@ -39,4 +39,17 @@ builder.Services
 builder.Services
     .AddHttpClient<IIdentityProvisioningService, IdentityProvisioningService>();
 
+builder.Services
+    .AddHttpClient<IVismaService, VismaService>(client =>
+    {
+        client.BaseAddress = new Uri(
+            builder.Configuration["Visma:BaseUrl"]
+            ?? throw new InvalidOperationException("Visma:BaseUrl is required."));
+    })
+    .Services
+    .AddSingleton(_ =>
+        new VismaOptions(
+            builder.Configuration["Visma:BearerToken"]
+            ?? throw new InvalidOperationException("Visma:BearerToken is required.")));
+
 builder.Build().Run();

@@ -14,9 +14,6 @@ public sealed class SyncToQuinyxFunction(
     QuinyxAgreementUpdater agreementUpdater,
     ILogger<SyncToQuinyxFunction> logger)
 {
-    private static readonly JsonSerializerOptions JsonOpts =
-        new() { PropertyNameCaseInsensitive = true };
-
     [Function(nameof(SyncToQuinyxFunction))]
     public async Task<HttpResponseData> Run(
         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "sync/quinyx")]
@@ -29,7 +26,7 @@ public sealed class SyncToQuinyxFunction(
         HaileyEmployee? employee;
         try
         {
-            employee = await JsonSerializer.DeserializeAsync<HaileyEmployee>(req.Body, JsonOpts, ct);
+            employee = await JsonSerializer.DeserializeAsync<HaileyEmployee>(req.Body, AppJsonOptions.Inbound, ct);
         }
         catch (JsonException ex)
         {
