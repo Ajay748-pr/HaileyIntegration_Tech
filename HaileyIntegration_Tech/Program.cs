@@ -18,6 +18,10 @@ builder.Services
 builder.Services.AddScoped<IEmployeeFilterService, EmployeeFilterService>();
 builder.Services.AddScoped<IEmployeeMappingService, EmployeeMappingService>();
 
+// Quinyx sync handlers
+builder.Services.AddScoped<HaileyIntegration.Tech.Functions.UpdateEmployeeFunction>();
+builder.Services.AddScoped<HaileyIntegration.Tech.Functions.UpdateAgreementFunction>();
+
 // Downstream services — each gets its own named HttpClient for independent BaseAddress + retry config
 builder.Services
     .AddHttpClient<IQuinyxService, QuinyxService>(client =>

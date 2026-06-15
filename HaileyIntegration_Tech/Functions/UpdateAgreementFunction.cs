@@ -1,10 +1,5 @@
-﻿using System.Net;
-using System.Text.Json;
-using HaileyIntegration.Tech.Models;
 using HaileyIntegration.Tech.Models.Dto;
 using HaileyIntegration.Tech.Services.Downstream;
-using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using ServiceReference1;
 
@@ -14,83 +9,39 @@ public sealed class UpdateAgreementFunction(
     IQuinyxService quinyxService,
     ILogger<UpdateAgreementFunction> logger)
 {
-    private static readonly JsonSerializerOptions JsonOpts =
-        new() { PropertyNameCaseInsensitive = true };
-
-    [Function(nameof(UpdateAgreementFunction))]
-    public async Task<HttpResponseData> Run(
-        [HttpTrigger(
-            AuthorizationLevel.Function,
-            "post",
-            Route = "quinyx/updateagreement")]
-        HttpRequestData req,
-        CancellationToken ct)
+    public async Task<SyncResult> ExecuteAsync(HaileyAgreement agreement, CancellationToken ct = default)
     {
         logger.LogInformation(
-            "UpdateAgreementFunction triggered. RequestId={RequestId}",
-            req.FunctionContext.InvocationId);
+            "UpdateAgreement starting for EmploymentNumber={EmploymentNumber}", agreement.EmploymentNumber);
 
-        var agreement = await ReadRequestAsync(req, ct);
+        // Fetch the existing Quinyx agreement ID so the update targets the correct record.
+        // If no agreement exists yet, proceed without an id — Quinyx will create a new one.
+        var agreementId = await quinyxService.GetAgreementIdAsync(agreement.EmploymentNumber!, ct);
 
-        if (agreement is null)
+        var quinyxAgreement = MapToQuinyxAgreement(agreement);
+
+        if (agreementId.HasValue)
         {
-            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync("A valid HaileyAgreement payload is required.", ct);
-            return bad;
+            quinyxAgreement.id          = agreementId.Value;
+            quinyxAgreement.idSpecified = true;
+            logger.LogInformation(
+                "Existing agreement found (id={Id}) for badgeNo={BadgeNo} — updating",
+                agreementId.Value, agreement.EmploymentNumber);
+        }
+        else
+        {
+            logger.LogInformation(
+                "No existing agreement found for badgeNo={BadgeNo} — Quinyx will create a new one",
+                agreement.EmploymentNumber);
         }
 
-        if (string.IsNullOrWhiteSpace(agreement.EmploymentNumber))
-        {
-            logger.LogWarning("Missing required field: employmentNumber.");
-            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync("employmentNumber is required.", ct);
-            return bad;
-        }
+        var result = await quinyxService.UpdateAgreementAsync(quinyxAgreement, ct);
 
         logger.LogInformation(
-            "Received agreement request for EmployeeNumber={EmployeeNumber} EmploymentType={EmploymentType} ScopeHours={ScopeHours} ScopePercentage={ScopePercentage}",
-            agreement.EmploymentNumber, agreement.EmploymentType, agreement.ScopeHours, agreement.EmploymentRate);
+            "UpdateAgreement completed. Success={Success} EmployeeNumber={EmployeeNumber} Message={Message}",
+            result.Success, result.EmployeeNumber, result.Message);
 
-        var quinyxAgreement =
-            MapToQuinyxAgreement(agreement);
-
-        var result =
-            await quinyxService.UpdateAgreementAsync(
-                quinyxAgreement,
-                ct);
-
-        var status =
-            result.Success
-                ? HttpStatusCode.OK
-                : HttpStatusCode.UnprocessableEntity;
-
-        var response =
-            req.CreateResponse(status);
-
-        await response.WriteAsJsonAsync(result, ct);
-
-        return response;
-    }
-
-    private async Task<HaileyAgreement?> ReadRequestAsync(
-        HttpRequestData req,
-        CancellationToken ct)
-    {
-        try
-        {
-            return await JsonSerializer.DeserializeAsync<HaileyAgreement>(
-                req.Body,
-                JsonOpts,
-                ct);
-        }
-        catch (JsonException ex)
-        {
-            logger.LogWarning(
-                ex,
-                "Agreement deserialization failed");
-
-            return null;
-        }
+        return result;
     }
 
     private UpdateAgreementV2 MapToQuinyxAgreement(HaileyAgreement src)
@@ -108,30 +59,22 @@ public sealed class UpdateAgreementFunction(
             additionalField4 = src.AdditionalField4,
             additionalField5 = src.AdditionalField5,
 
-            // Always the primary agreement, never hourly
             isMainAgreement          = true,
             isMainAgreementSpecified = true,
             hourly                   = false,
             hourlySpecified          = true,
 
-            // Standard full-time week is 40 hrs; contracted hours come from scopeHours
             fullEmploymentHrs          = 40m,
             fullEmploymentHrsSpecified = true,
         };
 
-        // fromDate → dateOfJoining
         if (src.FromDate.HasValue)
         {
             dest.fromDate          = src.FromDate.Value.ToDateTime(TimeOnly.MinValue);
             dest.fromDateSpecified = true;
         }
 
-        // expires + toDate derived from employmentType
-        // Permanent  → expires = false, no toDate
-        // FixedTerm  → expires = true,  toDate = ToDate (endOfFixedTerm from Logic App)
-        // ProbationaryPeriod → expires = true, toDate = ToDate (endOfProbationaryPeriod from Logic App)
         var isFixedTerm = src.EmploymentType is "FixedTerm" or "ProbationaryPeriod";
-
         dest.expires          = src.Expires ?? isFixedTerm;
         dest.expiresSpecified = true;
 
@@ -141,14 +84,12 @@ public sealed class UpdateAgreementFunction(
             dest.toDateSpecified = true;
         }
 
-        // minHrsWeek → scopeHours (actual contracted hours/week)
         if (src.ScopeHours.HasValue)
         {
             dest.minHrsWeek          = src.ScopeHours.Value;
             dest.minHrsWeekSpecified = true;
         }
 
-        // employmentRatesAdd → scopePercentage + fromDate
         if (src.EmploymentRate.HasValue && src.FromDate.HasValue)
         {
             dest.employmentRatesAdd =
@@ -161,7 +102,6 @@ public sealed class UpdateAgreementFunction(
             ];
         }
 
-        // salariesAdd → hourlySalary + fromDate
         if (src.HourlySalary.HasValue && src.FromDate.HasValue)
         {
             dest.salariesAdd =
