@@ -140,38 +140,12 @@
                       },
 
                       "actions": {
-                        "Sync_To_Primula": {
-                          "type": "Http",
-                          "runAfter": {},
-                          "inputs": {
-                            "method": "POST",
-                            "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/sync/primula')}",
-                            "headers": {
-                              "x-functions-key": "@parameters('functionAppKey')",
-                              "Content-Type": "application/json"
-                            },
-                            "body": "@items('Step_4a_For_Each_Updated_Employee')"
-                          }
-                        },
                         "Sync_To_Quinyx": {
                           "type": "Http",
                           "runAfter": {},
                           "inputs": {
                             "method": "POST",
                             "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/sync/quinyx')}",
-                            "headers": {
-                              "x-functions-key": "@parameters('functionAppKey')",
-                              "Content-Type": "application/json"
-                            },
-                            "body": "@items('Step_4a_For_Each_Updated_Employee')"
-                          }
-                        },
-                        "Sync_To_Learnify": {
-                          "type": "Http",
-                          "runAfter": {},
-                          "inputs": {
-                            "method": "POST",
-                            "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/sync/learnify')}",
                             "headers": {
                               "x-functions-key": "@parameters('functionAppKey')",
                               "Content-Type": "application/json"
@@ -202,19 +176,6 @@
                             "inputs": {
                               "method": "POST",
                               "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/identity/provision')}",
-                              "headers": {
-                                "x-functions-key": "@parameters('functionAppKey')",
-                                "Content-Type": "application/json"
-                              },
-                              "body": "@items('Step_4a_For_Each_Updated_Employee')"
-                            }
-                          },
-                          "Sync_Termination_To_Primula": {
-                            "type": "Http",
-                            "runAfter": {},
-                            "inputs": {
-                              "method": "POST",
-                              "uri": "@{concat(parameters('functionAppBaseUrl'), '/api/sync/primula')}",
                               "headers": {
                                 "x-functions-key": "@parameters('functionAppKey')",
                                 "Content-Type": "application/json"

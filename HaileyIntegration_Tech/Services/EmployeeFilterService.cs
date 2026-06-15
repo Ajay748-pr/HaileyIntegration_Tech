@@ -7,6 +7,8 @@ public sealed class EmployeeFilterService : IEmployeeFilterService
     public FilterEmployeesResponse FilterByLastUpdated(FilterEmployeesRequest request)
     {
         var reference = (request.ReferenceTime ?? DateTime.UtcNow).ToUniversalTime();
+
+
         // Add a 5-minute buffer to catch records updated right at the boundary
         var windowStart = reference.AddHours(-request.WindowHours).AddMinutes(-5);
 

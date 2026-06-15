@@ -32,7 +32,7 @@ public sealed class CanonicalEmployee
     public List<Guid>? TitleIds { get; set; }
     public List<Guid>? TeamIds { get; set; }
 
-    // Payroll / contract (Primula)
+    // Payroll / contract
     public decimal? ScopePercentage { get; set; }
     public decimal? ScopeHours { get; set; }
     public int? VacationDays { get; set; }
@@ -40,12 +40,12 @@ public sealed class CanonicalEmployee
     public DateOnly? EndOfFixedTerm { get; set; }
     public DateOnly? EndOfProbationaryPeriod { get; set; }
 
-    // Finance (Visma / Primula)
+    // Finance
     public string? CostCenter { get; set; }
     public string? Project { get; set; }
     public string? ActivityCode { get; set; }
 
-    // Banking (Primula payroll)
+    // Banking
     public string? BankName { get; set; }
     public string? ClearingNumber { get; set; }
     public string? AccountNumber { get; set; }
