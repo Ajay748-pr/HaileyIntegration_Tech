@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace HaileyIntegration.Tech.Models;
@@ -80,7 +81,7 @@ public sealed class HaileyEmployee
     public decimal? ScopeHours { get; set; }
 
     [JsonPropertyName("vacationDays")]
-    public int? VacationDays { get; set; }
+    public decimal? VacationDays { get; set; }
 
     [JsonPropertyName("substitutingForEmployeeId")]
     public Guid? SubstitutingForEmployeeId { get; set; }
@@ -152,7 +153,8 @@ public sealed class HaileyEmployee
     public string? IceRelation { get; set; }
 
     [JsonPropertyName("customFieldsData")]
-    public Dictionary<string, List<string>>? CustomFieldsData { get; set; }
+
+    public Dictionary<string, JsonElement>? CustomFieldsData { get; set; }
 
     [JsonPropertyName("employmentSequenceNumber")]
     public string? EmploymentSequenceNumber { get; set; }
