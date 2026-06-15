@@ -10,6 +10,8 @@ public interface IQuinyxService
     Task<IReadOnlyList<QuinyxRestaurant>> GetRestaurantsAsync(string changedSince, CancellationToken ct = default);
     Task<SyncResult> UpdateEmployeeAsync(UpdateEmployee employee, CancellationToken ct = default);
 
+    Task<int?> GetAgreementIdAsync(string badgeNo, CancellationToken ct = default);
+
     Task<SyncResult> UpdateAgreementAsync(
     UpdateAgreementV2 agreement,
     CancellationToken ct = default);

@@ -101,6 +101,37 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
         }
     }
 
+    // ─── GetAgreementId ──────────────────────────────────────────────────────
+    // Fetches the first active agreement ID for a given badge number.
+    // Used before UpdateAgreementV2 so Quinyx can locate the correct agreement record.
+    public async Task<int?> GetAgreementIdAsync(string badgeNo, CancellationToken ct = default)
+    {
+        var client = new FlexForcePortTypeClient();
+        try
+        {
+            var response = await client.wsdlGetAgreementsAsync(options.ApiKey, 0, 0, badgeNo, "");
+            await client.CloseAsync();
+
+            var agreement = response?.@return?.FirstOrDefault();
+            if (agreement == null)
+            {
+                logger.LogWarning("No agreements found in Quinyx for badgeNo={BadgeNo}", badgeNo);
+                return null;
+            }
+
+            logger.LogInformation(
+                "Found agreement id={Id} for badgeNo={BadgeNo}", agreement.id, badgeNo);
+
+            return agreement.id;
+        }
+        catch (Exception ex)
+        {
+            client.Abort();
+            logger.LogError(ex, "GetAgreementId threw for badgeNo={BadgeNo}", badgeNo);
+            throw;
+        }
+    }
+
     // ─── UpdateEmployee ───────────────────────────────────────────────────────
 
     public async Task<SyncResult> UpdateEmployeeAsync(UpdateEmployee employee, CancellationToken ct = default)

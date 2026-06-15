@@ -18,6 +18,10 @@ builder.Services
 builder.Services.AddScoped<IEmployeeFilterService, EmployeeFilterService>();
 builder.Services.AddScoped<IEmployeeMappingService, EmployeeMappingService>();
 
+// Quinyx sync handlers
+builder.Services.AddScoped<HaileyIntegration.Tech.Quinyx.QuinyxEmployeeUpdater>();
+builder.Services.AddScoped<HaileyIntegration.Tech.Quinyx.QuinyxAgreementUpdater>();
+
 // Downstream services — each gets its own named HttpClient for independent BaseAddress + retry config
 builder.Services
     .AddHttpClient<IQuinyxService, QuinyxService>(client =>
@@ -31,20 +35,6 @@ builder.Services
         new QuinyxOptions(
             builder.Configuration["Quinyx:ApiKey"]
             ?? throw new InvalidOperationException("Quinyx:ApiKey is required.")));
-
-builder.Services
-    .AddHttpClient<IHaileyService, HaileyService>(client =>
-    {
-        client.BaseAddress = new Uri(
-            builder.Configuration["Hailey:BaseUrl"]
-            ?? throw new InvalidOperationException("Hailey:BaseUrl is required."));
-
-        var apiKey = builder.Configuration["Hailey:ApiKey"]
-            ?? throw new InvalidOperationException("Hailey:ApiKey is required.");
-
-        client.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
-    });
 
 builder.Services
     .AddHttpClient<IIdentityProvisioningService, IdentityProvisioningService>();
