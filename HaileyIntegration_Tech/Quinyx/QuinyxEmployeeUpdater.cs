@@ -41,10 +41,10 @@ public sealed class QuinyxEmployeeUpdater(
             zip           = src.PostalCode,
             city          = src.City,
             country       = src.Country,
-            nextOfKind    = src.IceName,
-            nextPhone     = src.IcePhone,
             reportingTo   = src.ReportingTo,
             extCostCentre = src.ExtCostCentre,
+            active = 1,
+            activeSpecified = true,
         };
 
         if (!string.IsNullOrWhiteSpace(src.DateOfBirth) &&
@@ -64,35 +64,6 @@ public sealed class QuinyxEmployeeUpdater(
         {
             dest.leaveDate          = src.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
             dest.leaveDateSpecified = true;
-        }
-
-        if (!string.IsNullOrWhiteSpace(src.AccountStatus))
-        {
-            dest.active          = string.Equals(src.AccountStatus, "active", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-            dest.activeSpecified = true;
-        }
-
-        if (src.CustomFieldsData?.Count > 0)
-        {
-            dest.additionalFields = src.CustomFieldsData
-                .SelectMany(kvp =>
-                {
-                    var values = new List<string>();
-                    if (kvp.Value.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var element in kvp.Value.EnumerateArray())
-                            values.Add(element.ValueKind == JsonValueKind.String
-                                ? element.GetString()!
-                                : element.ToString());
-                    }
-                    else if (kvp.Value.ValueKind == JsonValueKind.String)
-                        values.Add(kvp.Value.GetString()!);
-                    else if (kvp.Value.ValueKind != JsonValueKind.Null && kvp.Value.ValueKind != JsonValueKind.Undefined)
-                        values.Add(kvp.Value.ToString());
-
-                    return values.Select(v => new AdditionalFieldData { key = kvp.Key, value = v });
-                })
-                .ToArray();
         }
 
         return dest;

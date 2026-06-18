@@ -52,18 +52,8 @@ public sealed class QuinyxAgreementUpdater(
             extAgreementId   = src.ExternalAgreementId,
             extTemplateId    = src.ExternalTemplateId,
             name             = src.Name,
-            comment          = src.Comment,
-            additionalField1 = src.AdditionalField1,
-            additionalField2 = src.AdditionalField2,
-            additionalField3 = src.AdditionalField3,
-            additionalField4 = src.AdditionalField4,
-            additionalField5 = src.AdditionalField5,
-
-            isMainAgreement          = true,
-            isMainAgreementSpecified = true,
             hourly                   = false,
             hourlySpecified          = true,
-
             fullEmploymentHrs          = 40m,
             fullEmploymentHrsSpecified = true,
         };
@@ -89,31 +79,6 @@ public sealed class QuinyxAgreementUpdater(
             dest.minHrsWeek          = src.ScopeHours.Value;
             dest.minHrsWeekSpecified = true;
         }
-
-        if (src.EmploymentRate.HasValue && src.FromDate.HasValue)
-        {
-            dest.employmentRatesAdd =
-            [
-                new EmploymentRate
-                {
-                    fromDate = src.FromDate.Value.ToDateTime(TimeOnly.MinValue),
-                    rate     = src.EmploymentRate.Value
-                }
-            ];
-        }
-
-        if (src.HourlySalary.HasValue && src.FromDate.HasValue)
-        {
-            dest.salariesAdd =
-            [
-                new AgreementSalary
-                {
-                    fromDate     = src.FromDate.Value.ToDateTime(TimeOnly.MinValue),
-                    hourlySalary = src.HourlySalary.Value
-                }
-            ];
-        }
-
         return dest;
     }
 }
