@@ -15,8 +15,8 @@ builder.Services
     .ConfigureFunctionsApplicationInsights();
 
 // Core services
-builder.Services.AddScoped<IEmployeeFilterService, EmployeeFilterService>();
-builder.Services.AddScoped<IEmployeeMappingService, EmployeeMappingService>();
+//builder.Services.AddScoped<IEmployeeFilterService, EmployeeFilterService>();
+//builder.Services.AddScoped<IEmployeeMappingService, EmployeeMappingService>();
 
 // Quinyx sync handlers
 builder.Services.AddScoped<HaileyIntegration.Tech.Quinyx.QuinyxEmployeeUpdater>();
@@ -27,14 +27,14 @@ builder.Services
     .AddHttpClient<IQuinyxService, QuinyxService>(client =>
     {
         client.BaseAddress = new Uri(
-            builder.Configuration["Quinyx:BaseUrl"]
-            ?? throw new InvalidOperationException("Quinyx:BaseUrl is required."));
+            builder.Configuration["QuinyxBaseUrl"]
+            ?? throw new InvalidOperationException("QuinyxBaseUrl is required."));
     })
     .Services
     .AddSingleton(_ =>
         new QuinyxOptions(
-            builder.Configuration["Quinyx:ApiKey"]
-            ?? throw new InvalidOperationException("Quinyx:ApiKey is required.")));
+            builder.Configuration["QuinyxApiKey"]
+            ?? throw new InvalidOperationException("QuinyxApiKey is required.")));
 
 builder.Services
     .AddHttpClient<IIdentityProvisioningService, IdentityProvisioningService>();
@@ -43,8 +43,8 @@ builder.Services
     .AddHttpClient<IVismaService, VismaService>(client =>
     {
         client.BaseAddress = new Uri(
-            builder.Configuration["Visma:BaseUrl"]
-            ?? throw new InvalidOperationException("Visma:BaseUrl is required."));
+            builder.Configuration["VismaBaseUrl"]
+            ?? throw new InvalidOperationException("VismaBaseUrl is required."));
     })
     .Services
     .AddSingleton(_ =>

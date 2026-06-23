@@ -18,4 +18,9 @@ public interface IQuinyxService
     Task<SyncResult> MoveEmployeeAsync(
     moveEmployee employee,
     CancellationToken ct = default);
+
+    Task<IReadOnlyList<AgreementTemplate>> GetAgreementTemplatesAsync(
+        int agreementTemplateId = 0,
+        string lastModified = "",
+        CancellationToken ct = default);
 }

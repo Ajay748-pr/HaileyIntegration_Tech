@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.Text.RegularExpressions;
 using HaileyIntegration.Tech.Models;
 using HaileyIntegration.Tech.Models.Dto;
 using HaileyIntegration.Tech.Services.Downstream;
@@ -7,16 +7,18 @@ using ServiceReference1;
 
 namespace HaileyIntegration.Tech.Quinyx;
 
-public sealed class QuinyxEmployeeUpdater(
+public sealed partial class QuinyxEmployeeUpdater(
     IQuinyxService quinyxService,
     ILogger<QuinyxEmployeeUpdater> logger)
 {
-    public async Task<SyncResult> ExecuteAsync(HaileyEmployee employee, CancellationToken ct = default)
+    [GeneratedRegex(@"[^0-9A-Za-z]")]
+    private static partial Regex NonAlphanumericRegex();
+    public async Task<SyncResult> ExecuteAsync(HaileyDeatils details, CancellationToken ct = default)
     {
         logger.LogInformation(
-            "UpdateEmployee starting for EmploymentNumber={EmploymentNumber}", employee.EmploymentNumber);
+            "UpdateEmployee starting for EmploymentNumber={EmploymentNumber}", details.HaileyEmployeeDetails.JobData.General.EmploymentNumber);
 
-        var quinyxEmployee = MapToQuinyxEmployee(employee);
+        var quinyxEmployee = MapToQuinyxEmployee(details);
         var result = await quinyxService.UpdateEmployeeAsync(quinyxEmployee, ct);
 
         logger.LogInformation(
@@ -26,43 +28,57 @@ public sealed class QuinyxEmployeeUpdater(
         return result;
     }
 
-    private UpdateEmployee MapToQuinyxEmployee(HaileyEmployee src)
+    private UpdateEmployee MapToQuinyxEmployee(HaileyDeatils src)
     {
         var dest = new UpdateEmployee
         {
-            badgeNo       = src.EmploymentNumber,
-            givenName     = src.FirstName,
-            familyName    = src.LastName,
-            email         = src.CompanyEmail,
-            phoneNo       = src.WorkPhone,
-            cellPhone     = src.PrivatePhone,
-            socsecNo      = src.PersonalIdentityNumber,
-            address1      = src.StreetAddress,
-            zip           = src.PostalCode,
-            city          = src.City,
-            country       = src.Country,
-            reportingTo   = src.ReportingTo,
-            extCostCentre = src.ExtCostCentre,
+            badgeNo = src.HaileyEmployee.EmploymentNumber,
+            givenName = src.HaileyEmployee.FirstName,
+            familyName = src.HaileyEmployee.LastName,
+            email = src.HaileyEmployeeDetails.JobData.General.CompanyEmail,
+            phoneNo = src.HaileyEmployee.WorkPhone,
+            socsecNo = src.HaileyEmployee.PersonalIdentityNumber is { } pin
+                ? NonAlphanumericRegex().Replace(pin, "")
+                : null,
+            address1 = src.HaileyEmployee.StreetAddress,
+            zip = src.HaileyEmployee.PostalCode,
+            city = src.HaileyEmployee.City,
+            country = src.HaileyEmployee.Country,
+            reportingTo = src.HaileyMangerEmployeeNumber,
             active = 1,
             activeSpecified = true,
+            extSectionId = src.HaileyCompany.Departments.FirstOrDefault(x => x.Id == src.HaileyEmployee.DepartmentId).Name,
+
+
         };
 
-        if (!string.IsNullOrWhiteSpace(src.DateOfBirth) &&
-            DateTime.TryParse(src.DateOfBirth, out var dob))
+        if (!string.IsNullOrWhiteSpace(src.HaileyEmployee.Gender))
         {
-            dest.dateOfBirth          = dob;
+            dest.sex = src.HaileyEmployee.Gender?.Trim().ToLower() switch
+            {
+                "male" => 0,
+                "female" => 1,
+                _ => 3
+            };
+            dest.sexSpecified = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(src.HaileyEmployee.DateOfBirth) &&
+            DateTime.TryParse(src.HaileyEmployee.DateOfBirth, out var dob))
+        {
+            dest.dateOfBirth = dob;
             dest.dateOfBirthSpecified = true;
         }
 
-        if (src.DateOfJoining.HasValue)
+        if (src.HaileyEmployee.DateOfJoining.HasValue && src.HaileyEmployee.DateOfJoining > DateOnly.MinValue)
         {
-            dest.employedDate          = src.DateOfJoining.Value.ToDateTime(TimeOnly.MinValue);
+            dest.employedDate = src.HaileyEmployee.DateOfJoining.Value.ToDateTime(TimeOnly.MinValue);
             dest.employedDateSpecified = true;
         }
 
-        if (src.LastDayOfEmployment.HasValue)
+        if (src.HaileyEmployee.LastDayOfEmployment.HasValue && src.HaileyEmployee.LastDayOfEmployment > DateOnly.MinValue)
         {
-            dest.leaveDate          = src.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
+            dest.leaveDate = src.HaileyEmployee.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
             dest.leaveDateSpecified = true;
         }
 

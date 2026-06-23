@@ -394,4 +394,40 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
             };
         }
     }
+
+    public async Task<IReadOnlyList<AgreementTemplate>> GetAgreementTemplatesAsync(
+        int agreementTemplateId = 0,
+        string lastModified = "",
+        CancellationToken ct = default)
+    {
+        var client = new FlexForcePortTypeClient();
+        try
+        {
+            logger.LogInformation(
+                "GetAgreementTemplates starting. agreementTemplateId={TemplateId} lastModified={LastModified}",
+                agreementTemplateId, lastModified);
+
+            var response = await client.wsdlGetAgreementTemplatesAsync(
+                options.ApiKey, agreementTemplateId, lastModified);
+
+            await client.CloseAsync();
+
+            var templates = response?.@return;
+
+            if (templates == null || templates.Length == 0)
+            {
+                logger.LogInformation("Quinyx returned no agreement templates.");
+                return [];
+            }
+
+            logger.LogInformation("Quinyx returned {Count} agreement template(s).", templates.Length);
+            return templates;
+        }
+        catch (Exception ex)
+        {
+            client.Abort();
+            logger.LogError(ex, "GetAgreementTemplates threw for agreementTemplateId={TemplateId}", agreementTemplateId);
+            throw;
+        }
+    }
 }

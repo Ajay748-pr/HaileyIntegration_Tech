@@ -1,3 +1,4 @@
+using HaileyIntegration.Tech.Models;
 using HaileyIntegration.Tech.Models.Dto;
 using HaileyIntegration.Tech.Services.Downstream;
 using Microsoft.Extensions.Logging;
@@ -9,31 +10,14 @@ public sealed class QuinyxAgreementUpdater(
     IQuinyxService quinyxService,
     ILogger<QuinyxAgreementUpdater> logger)
 {
-    public async Task<SyncResult> ExecuteAsync(HaileyAgreement agreement, CancellationToken ct = default)
+    public async Task<SyncResult> ExecuteAsync(HaileyDeatils details, CancellationToken ct = default)
     {
         logger.LogInformation(
-            "UpdateAgreement starting for EmploymentNumber={EmploymentNumber}", agreement.EmploymentNumber);
+            "UpdateAgreement starting for EmploymentNumber={EmploymentNumber}",
+            details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber);
 
-        // Fetch the existing Quinyx agreement ID so the update targets the correct record.
-        // If no agreement exists yet, proceed without an id — Quinyx will create a new one.
-        var agreementId = await quinyxService.GetAgreementIdAsync(agreement.EmploymentNumber!, ct);
-
-        var quinyxAgreement = MapToQuinyxAgreement(agreement);
-
-        if (agreementId.HasValue)
-        {
-            quinyxAgreement.id          = agreementId.Value;
-            quinyxAgreement.idSpecified = true;
-            logger.LogInformation(
-                "Existing agreement found (id={Id}) for badgeNo={BadgeNo} — updating",
-                agreementId.Value, agreement.EmploymentNumber);
-        }
-        else
-        {
-            logger.LogInformation(
-                "No existing agreement found for badgeNo={BadgeNo} — Quinyx will create a new one",
-                agreement.EmploymentNumber);
-        }
+        var templates = await quinyxService.GetAgreementTemplatesAsync(ct: ct);
+        var quinyxAgreement = MapToQuinyxAgreement(details, templates);
 
         var result = await quinyxService.UpdateAgreementAsync(quinyxAgreement, ct);
 
@@ -44,41 +28,102 @@ public sealed class QuinyxAgreementUpdater(
         return result;
     }
 
-    private UpdateAgreementV2 MapToQuinyxAgreement(HaileyAgreement src)
+    private UpdateAgreementV2 MapToQuinyxAgreement(HaileyDeatils details, IReadOnlyList<AgreementTemplate> templates)
     {
         var dest = new UpdateAgreementV2
         {
-            badgeNo          = src.EmploymentNumber,
-            extAgreementId   = src.ExternalAgreementId,
-            extTemplateId    = src.ExternalTemplateId,
-            name             = src.Name,
-            hourly                   = false,
-            hourlySpecified          = true,
-            fullEmploymentHrs          = 40m,
-            fullEmploymentHrsSpecified = true,
+            badgeNo = details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber,
         };
 
-        if (src.FromDate.HasValue)
+        var firstSalary = details.HaileyEmployeeDetails.Salaries?.FirstOrDefault();
+        var isHourly = false;
+        if (firstSalary?.History?.Count > 0)
         {
-            dest.fromDate          = src.FromDate.Value.ToDateTime(TimeOnly.MinValue);
+            isHourly = firstSalary.SalaryType?.Trim().ToLower() == "hourly";
+
+            dest.salariesAdd = [.. firstSalary.History
+                .Where(h => h.Date.HasValue)
+                .Select(h =>
+                {
+                    var s = new AgreementSalary
+                    {
+                        fromDate          = h.Date!.Value.ToDateTime(TimeOnly.MinValue),
+                        fromDateSpecified = true,
+                    };
+                    if (isHourly) { s.hourlySalary  = h.Amount; s.hourlySalarySpecified  = true; }
+                    else          { s.monthlySalary = h.Amount; s.monthlySalarySpecified = true; }
+                    return s;
+                })];
+        }
+
+        dest.useTempSalary = false;
+
+        var matchedTemplate = ResolveTemplate(firstSalary?.SalaryType, templates);
+
+        if (matchedTemplate is not null)
+        {
+            dest.templateId = matchedTemplate.id;
+        }
+        else
+        {
+            logger.LogWarning(
+                "No Quinyx agreement template matched for SalaryType={SalaryType}. extTemplateId/extAgreementId will not be set.",
+                firstSalary?.SalaryType);
+        }
+
+        if (isHourly)
+        {
+            dest.hourly = true;
+            dest.fullEmploymentHrs = 0m;
+            dest.fullEmploymentHrsSpecified = true;
+        }
+        else
+        {
+            dest.hourly = false;
+            dest.fullEmploymentHrs = details.HaileyEmployee.ScopePercentage ?? 0m;
+            dest.fullEmploymentHrsSpecified = true;
+        }
+        var employmentDateOfJoining = details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining;
+        var scopePercentage = details.HaileyEmployee.ScopePercentage;
+        if (employmentDateOfJoining.HasValue && scopePercentage.HasValue)
+        {
+            dest.employmentRatesAdd =
+            [
+                new EmploymentRate
+                {
+                    fromDate = employmentDateOfJoining.Value.ToDateTime(TimeOnly.MinValue),
+                    rate     = scopePercentage.Value
+                }
+            ];
+        }
+
+        if (details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining.HasValue == true)
+        {
+            dest.fromDate = details.HaileyEmployeeDetails.JobData.Employment.DateOfJoining.Value.ToDateTime(TimeOnly.MinValue);
             dest.fromDateSpecified = true;
         }
 
-        var isFixedTerm = src.EmploymentType is "FixedTerm" or "ProbationaryPeriod";
-        dest.expires          = src.Expires ?? isFixedTerm;
-        dest.expiresSpecified = true;
-
-        if (src.ToDate.HasValue)
+        if (details.HaileyEmployeeDetails.JobData?.Employment?.LastDayOfEmployment.HasValue == true)
         {
-            dest.toDate          = src.ToDate.Value.ToDateTime(TimeOnly.MinValue);
+            dest.toDate = details.HaileyEmployeeDetails.JobData.Employment.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
             dest.toDateSpecified = true;
         }
 
-        if (src.ScopeHours.HasValue)
-        {
-            dest.minHrsWeek          = src.ScopeHours.Value;
-            dest.minHrsWeekSpecified = true;
-        }
         return dest;
+    }
+
+    private AgreementTemplate? ResolveTemplate(
+        string? salaryType,
+        IReadOnlyList<AgreementTemplate> templates)
+    {
+        return salaryType?.Trim().ToLower() switch
+        {
+            "hourly"    => templates.FirstOrDefault(t => t.hourly == 1),
+            "full-time" => templates.FirstOrDefault(t => t.hourly == 0
+                               && t.templateName?.Contains("heltid", StringComparison.OrdinalIgnoreCase) == true),
+            "monthly"   => templates.FirstOrDefault(t => t.hourly == 0
+                               && t.templateName?.Contains("deltid", StringComparison.OrdinalIgnoreCase) == true),
+            _           => null
+        };
     }
 }

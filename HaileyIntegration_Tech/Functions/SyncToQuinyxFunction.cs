@@ -23,10 +23,10 @@ public sealed class SyncToQuinyxFunction(
         logger.LogInformation(
             "SyncToQuinyxFunction triggered. RequestId={RequestId}", req.FunctionContext.InvocationId);
 
-        HaileyEmployee? employee;
+        HaileyDeatils? haileyDeatils;
         try
         {
-            employee = await JsonSerializer.DeserializeAsync<HaileyEmployee>(req.Body, AppJsonOptions.Inbound, ct);
+            haileyDeatils = await JsonSerializer.DeserializeAsync<HaileyDeatils>(req.Body, AppJsonOptions.Inbound, ct);
         }
         catch (JsonException ex)
         {
@@ -36,25 +36,19 @@ public sealed class SyncToQuinyxFunction(
             return bad;
         }
 
-        if (employee is null || string.IsNullOrWhiteSpace(employee.EmploymentNumber))
-        {
-            var bad = req.CreateResponse(HttpStatusCode.BadRequest);
-            await bad.WriteStringAsync("A valid employee payload with employmentNumber is required.", ct);
-            return bad;
-        }
 
         logger.LogInformation(
             "Processing employee {EmploymentNumber} → UpdateEmployee then UpdateAgreement",
-            employee.EmploymentNumber);
+             haileyDeatils.HaileyEmployeeDetails.JobData.General.EmploymentNumber);
 
         // Step 1 — UpdateEmployee
-        var empResult = await employeeUpdater.ExecuteAsync(employee, ct);
+        var empResult = await employeeUpdater.ExecuteAsync(haileyDeatils, ct);
 
         if (!empResult.Success)
         {
             logger.LogWarning(
                 "UpdateEmployee failed for {EmploymentNumber}: {Message}",
-                employee.EmploymentNumber, empResult.Message);
+                empResult.Message);
 
             var failResponse = req.CreateResponse(HttpStatusCode.UnprocessableEntity);
             await failResponse.WriteAsJsonAsync(new
@@ -65,9 +59,9 @@ public sealed class SyncToQuinyxFunction(
             return failResponse;
         }
 
-        // Step 2 — UpdateAgreement (derived from the same employee payload)
-        var agreement = BuildAgreement(employee);
-        var agreeResult = await agreementUpdater.ExecuteAsync(agreement, ct);
+        // Step 2 — UpdateAgreement
+       
+        var agreeResult = await agreementUpdater.ExecuteAsync(haileyDeatils, ct);
 
         var status = agreeResult.Success ? HttpStatusCode.OK : HttpStatusCode.UnprocessableEntity;
         var response = req.CreateResponse(status);
@@ -78,15 +72,4 @@ public sealed class SyncToQuinyxFunction(
         }, ct);
         return response;
     }
-
-    private static HaileyAgreement BuildAgreement(HaileyEmployee src) => new()
-    {
-        EmploymentNumber = src.EmploymentNumber,
-        EmploymentType   = src.EmploymentType,
-        FromDate         = src.DateOfJoining,
-        ToDate           = src.LastDayOfEmployment,
-        Expires          = src.LastDayOfEmployment.HasValue,
-        ScopeHours       = src.ScopeHours,
-        EmploymentRate   = src.ScopePercentage,
-    };
 }
