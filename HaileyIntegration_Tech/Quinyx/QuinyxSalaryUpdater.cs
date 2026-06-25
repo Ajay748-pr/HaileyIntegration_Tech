@@ -6,19 +6,25 @@ using ServiceReference1;
 
 namespace HaileyIntegration.Tech.Quinyx;
 
-public sealed class QuinyxAgreementUpdater(
+public sealed class QuinyxSalaryUpdater(
     IQuinyxService quinyxService,
-    ILogger<QuinyxAgreementUpdater> logger)
+    ILogger<QuinyxSalaryUpdater> logger)
 {
-    public async Task<SyncResult> ExecuteAsync(HaileyDeatils details, string apiKey , CancellationToken ct = default)
+    public async Task<SyncResult> ExecuteAsync(HaileyDeatils details,CancellationToken ct = default)
     {
         logger.LogInformation(
             "UpdateAgreement starting for EmploymentNumber={EmploymentNumber}",
             details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber);
+        var units = await quinyxService.GetUnitsAPIKeyAsync(ct);
+        var departmentId = details.HaileyEmployee.DepartmentId;
+        var matchedUnit = units.FirstOrDefault(u => u.name == departmentId);
+        if (matchedUnit is null)
+            logger.LogWarning("No Quinyx unit matched DepartmentId={DepartmentId}", departmentId);
+        string apiKey = matchedUnit?.API_key ?? "";
 
-        var quinyxTemplates = await quinyxService.GetAgreementTemplatesAsync(ct: ct);
-        var quinyxAgreement = MapToQuinyxAgreement(details, quinyxTemplates);
-        
+        var quinyxtemplates = await quinyxService.GetAgreementTemplatesAsync(ct: ct);
+        var quinyxAgreement = MapToQuinyxAgreement(details, quinyxtemplates);
+
         var result = await quinyxService.UpdateAgreementAsync(quinyxAgreement, apiKey, ct);
 
         logger.LogInformation(
@@ -28,12 +34,13 @@ public sealed class QuinyxAgreementUpdater(
         return result;
     }
 
-    private UpdateAgreementV2 MapToQuinyxAgreement(HaileyDeatils details, IReadOnlyList<AgreementTemplate> templates)
+    private UpdateAgreementV2 MapToQuinyxAgreement(HaileyDeatils details, IReadOnlyList<AgreementTemplate> quinyxtemplates)
     {
         var dest = new UpdateAgreementV2
         {
             badgeNo = details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber,
         };
+
         var salary = details.HaileyEmployeeDetails.Salaries?.FirstOrDefault();
         var isHourly = false;
         if (salary?.History?.Count > 0)
@@ -56,22 +63,9 @@ public sealed class QuinyxAgreementUpdater(
                 dest.salariesAdd = [agreementSalary];
             }
         }
+
         dest.useTempSalary = false;
 
-        var matchedTemplate = ResolveTemplate(salary?.SalaryType, templates);
-
-        if (matchedTemplate is not null)
-        {
-            dest.templateId = matchedTemplate.id;
-            dest.templateIdSpecified = true;
-            //dest.extTemplateId = matchedTemplate.templateName;
-        }
-        else
-        {
-            logger.LogWarning(
-                "No Quinyx agreement template matched for SalaryType={SalaryType}. extTemplateId/extAgreementId will not be set.",
-                salary?.SalaryType);
-        }
 
         if (isHourly)
         {
@@ -85,45 +79,19 @@ public sealed class QuinyxAgreementUpdater(
             dest.fullEmploymentHrs = details.HaileyEmployee.ScopePercentage ?? 0m;
             dest.fullEmploymentHrsSpecified = true;
         }
-        var employmentDateOfJoining = details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining;
-        var scopePercentage = details.HaileyEmployee.ScopePercentage;
-        
-        dest.employmentRatesAdd =
-        [
-            new EmploymentRate
-            {
-                fromDate = employmentDateOfJoining.HasValue ?employmentDateOfJoining.Value.ToDateTime(TimeOnly.MinValue): DateTime.Today,
-                rate     = scopePercentage.HasValue ? scopePercentage.Value :0
-            }
-        ];
-        
+
         if (details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining.HasValue == true)
         {
             dest.fromDate = details.HaileyEmployeeDetails.JobData.Employment.DateOfJoining.Value.ToDateTime(TimeOnly.MinValue);
             dest.fromDateSpecified = true;
         }
 
-        if (details.HaileyEmployeeDetails.JobData?.Employment?.LastDayOfEmployment.HasValue == true)
-        {
-            dest.toDate = details.HaileyEmployeeDetails.JobData.Employment.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
-            dest.toDateSpecified = true;
-            dest.expires = true;
-            dest.expiresSpecified = true;
-        }
+        //if (details.HaileyEmployeeDetails.JobData?.Employment?.LastDayOfEmployment.HasValue == true)
+        //{
+        //    dest.toDate = details.HaileyEmployeeDetails.JobData.Employment.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
+        //    dest.toDateSpecified = true;
+        //}
 
         return dest;
-    }
-
-    private AgreementTemplate? ResolveTemplate(
-        string? salaryType,
-        IReadOnlyList<AgreementTemplate> templates)
-    {
-        return salaryType?.Trim().ToLower() switch
-        {
-            "hourly" => templates.FirstOrDefault(t =>t.templateName?.Contains("tim", StringComparison.OrdinalIgnoreCase) == true),
-            "full-time" => templates.FirstOrDefault(t => t.templateName?.Contains("heltid", StringComparison.OrdinalIgnoreCase) == true),
-            "monthly"   => templates.FirstOrDefault(t =>t.templateName?.Contains("deltid", StringComparison.OrdinalIgnoreCase) == true),
-            _           => null
-        };
     }
 }

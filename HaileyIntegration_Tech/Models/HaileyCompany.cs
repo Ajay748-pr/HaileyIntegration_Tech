@@ -43,8 +43,8 @@ public sealed class HaileyDepartment
     //[JsonPropertyName("headOfDepartmentEmployeeId")]
     //public string? HeadOfDepartmentEmployeeId { get; set; }
 
-    //[JsonPropertyName("belongingToDepartmentId")]
-    //public string? BelongingToDepartmentId { get; set; }
+    [JsonPropertyName("belongingToDepartmentId")]
+    public string? BelongingToDepartmentId { get; set; }
 }
 
 //public sealed class HaileyNamedItem

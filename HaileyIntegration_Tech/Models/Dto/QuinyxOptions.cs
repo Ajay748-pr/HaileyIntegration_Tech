@@ -1,3 +1,3 @@
 namespace HaileyIntegration.Tech.Models.Dto;
 
-public sealed record QuinyxOptions(string ApiKey);
+public sealed record QuinyxOptions(string ApiKey,string QuinyxGroups);

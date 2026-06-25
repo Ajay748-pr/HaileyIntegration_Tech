@@ -6,21 +6,31 @@ namespace HaileyIntegration.Tech.Services.Downstream;
 
 public interface IQuinyxService
 {
-    Task<SyncResult> SyncEmployeeAsync(CanonicalEmployee employee, CancellationToken ct = default);
-    Task<IReadOnlyList<QuinyxRestaurant>> GetRestaurantsAsync(string changedSince, CancellationToken ct = default);
-    Task<SyncResult> UpdateEmployeeAsync(UpdateEmployee employee, CancellationToken ct = default);
+    public string apiKey { get; set; }
+    Task<SyncResult> SyncEmployeeAsync(CanonicalEmployee employee, string apiKey, CancellationToken ct = default);
+    Task<IReadOnlyList<QuinyxRestaurant>> GetRestaurantsAsync(string changedSince, string apiKey, CancellationToken ct = default);
+    Task<SyncResult> UpdateEmployeeAsync(UpdateEmployee employee, string apiKey, CancellationToken ct = default);
 
-    Task<int?> GetAgreementIdAsync(string badgeNo, CancellationToken ct = default);
+    Task<int?> GetAgreementIdAsync(string badgeNo, string apiKey, CancellationToken ct = default);
 
     Task<SyncResult> UpdateAgreementAsync(
-    UpdateAgreementV2 agreement,
+    UpdateAgreementV2 agreement, string apiKey,
     CancellationToken ct = default);
     Task<SyncResult> MoveEmployeeAsync(
-    moveEmployee employee,
+    moveEmployee employee, string apiKey,
     CancellationToken ct = default);
 
     Task<IReadOnlyList<AgreementTemplate>> GetAgreementTemplatesAsync(
         int agreementTemplateId = 0,
+        string lastModified = "",
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UnitKeyV2>> GetUnitsAPIKeyAsync( CancellationToken ct = default);
+    
+    //public string GetGroupList();
+
+    Task<IReadOnlyList<Category>> GetCategoriesAsync(
+        int categoryType = 0,
         string lastModified = "",
         CancellationToken ct = default);
 }

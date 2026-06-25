@@ -33,8 +33,8 @@ builder.Services
     .Services
     .AddSingleton(_ =>
         new QuinyxOptions(
-            builder.Configuration["QuinyxApiKey"]
-            ?? throw new InvalidOperationException("QuinyxApiKey is required.")));
+            builder.Configuration["QuinyxApiKey"],
+            builder.Configuration["QuinyxGroups"]));
 
 builder.Services
     .AddHttpClient<IIdentityProvisioningService, IdentityProvisioningService>();

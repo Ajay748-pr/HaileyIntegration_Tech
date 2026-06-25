@@ -44,10 +44,11 @@ public sealed class SyncToQuinyxFunction(
         // Step 1 — UpdateEmployee
         var empResult = await employeeUpdater.ExecuteAsync(haileyDeatils, ct);
 
+       
         if (!empResult.Success)
         {
             logger.LogWarning(
-                "UpdateEmployee failed for {EmploymentNumber}: {Message}",
+                "UpdateEmployee failed",
                 empResult.Message);
 
             var failResponse = req.CreateResponse(HttpStatusCode.UnprocessableEntity);
@@ -61,7 +62,7 @@ public sealed class SyncToQuinyxFunction(
 
         // Step 2 — UpdateAgreement
        
-        var agreeResult = await agreementUpdater.ExecuteAsync(haileyDeatils, ct);
+        var agreeResult = await agreementUpdater.ExecuteAsync(haileyDeatils, empResult.ApiKey, ct);
 
         var status = agreeResult.Success ? HttpStatusCode.OK : HttpStatusCode.UnprocessableEntity;
         var response = req.CreateResponse(status);

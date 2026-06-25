@@ -2,6 +2,7 @@ namespace HaileyIntegration.Tech.Models.Dto;
 
 public sealed class SyncResult
 {
+    public string? ApiKey { get; set; }
     public bool Success { get; set; }
     public string? EmployeeNumber { get; set; }
     public string? TargetSystem { get; set; }

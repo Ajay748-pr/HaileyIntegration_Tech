@@ -8,13 +8,14 @@ namespace HaileyIntegration.Tech.Services.Downstream;
 
 public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogger<QuinyxService> logger) : IQuinyxService
 {
+    public string apiKey { get; set; } = options.ApiKey;
 
-    public async Task<IReadOnlyList<QuinyxRestaurant>> GetRestaurantsAsync(string changedSince, CancellationToken ct = default)
+    public async Task<IReadOnlyList<QuinyxRestaurant>> GetRestaurantsAsync(string changedSince, string apiKey, CancellationToken ct = default)
     {
         var client = new FlexForcePortTypeClient();
         try
         {
-            var response = await client.wsdlGetRestaurantsAsync(options.ApiKey, changedSince);
+            var response = await client.wsdlGetRestaurantsAsync(apiKey, changedSince);
             var restaurants = response.@return;
 
             await client.CloseAsync();
@@ -45,7 +46,7 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
         }
     }
 
-    public async Task<SyncResult> SyncEmployeeAsync(CanonicalEmployee employee, CancellationToken ct = default)
+    public async Task<SyncResult> SyncEmployeeAsync(CanonicalEmployee employee, string apiKey, CancellationToken ct = default)
     {
         // Quinyx requires employee number as the matching key (originating from Hailey)
         var payload = new
@@ -104,12 +105,12 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
     // ─── GetAgreementId ──────────────────────────────────────────────────────
     // Fetches the first active agreement ID for a given badge number.
     // Used before UpdateAgreementV2 so Quinyx can locate the correct agreement record.
-    public async Task<int?> GetAgreementIdAsync(string badgeNo, CancellationToken ct = default)
+    public async Task<int?> GetAgreementIdAsync(string badgeNo,string apiKey, CancellationToken ct = default)
     {
         var client = new FlexForcePortTypeClient();
         try
         {
-            var response = await client.wsdlGetAgreementsAsync(options.ApiKey, 0, 0, badgeNo, "");
+            var response = await client.wsdlGetAgreementsAsync( apiKey, 0, 0, badgeNo, "");
             await client.CloseAsync();
 
             var agreement = response?.@return?.FirstOrDefault();
@@ -134,12 +135,12 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
 
     // ─── UpdateEmployee ───────────────────────────────────────────────────────
 
-    public async Task<SyncResult> UpdateEmployeeAsync(UpdateEmployee employee, CancellationToken ct = default)
+    public async Task<SyncResult> UpdateEmployeeAsync(UpdateEmployee employee, string apiKey, CancellationToken ct = default)
     {
         logger.LogInformation(
             "UpdateEmployeeAsync starting for badgeNo={BadgeNo}", employee.badgeNo);
 
-        var result = await TriggerUpdateEmployeeSoapAsync(employee, ct);
+        var result = await TriggerUpdateEmployeeSoapAsync(employee,apiKey, ct);
 
         logger.LogInformation(
             "UpdateEmployeeAsync finished for badgeNo={BadgeNo} Success={Success}",
@@ -150,7 +151,7 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
 
     // Trigger: creates the SOAP client, calls wsdlUpdateEmployees, and returns a SyncResult.
     // This is kept separate so it can be tested or retried independently.
-    private async Task<SyncResult> TriggerUpdateEmployeeSoapAsync(UpdateEmployee employee, CancellationToken ct)
+    private async Task<SyncResult> TriggerUpdateEmployeeSoapAsync(UpdateEmployee employee, string apiKey, CancellationToken ct)
     {
         var client = new FlexForcePortTypeClient();
         try
@@ -162,7 +163,7 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
                 employee.employedDateSpecified ? employee.employedDate.ToString("yyyy-MM-dd") : "(not set)",
                 employee.leaveDateSpecified    ? employee.leaveDate.ToString("yyyy-MM-dd")    : "(not set)");
 
-            var response = await client.wsdlUpdateEmployeesAsync(options.ApiKey, [employee]);
+            var response = await client.wsdlUpdateEmployeesAsync(apiKey, [employee]);
 
             await client.CloseAsync();
 
@@ -217,7 +218,7 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
 
     public async Task<SyncResult> UpdateAgreementAsync(
     UpdateAgreementV2 agreement,
-    CancellationToken ct = default)
+    string apiKey, CancellationToken ct = default)
     {
         logger.LogInformation(
             "UpdateAgreementAsync starting for badgeNo={BadgeNo}",
@@ -233,7 +234,7 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
 
             var response =
                 await client.wsdlUpdateAgreementsV2Async(
-                    options.ApiKey,
+                    apiKey,
                     [agreement]);
 
             await client.CloseAsync();
@@ -319,7 +320,7 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
 
     public async Task<SyncResult> MoveEmployeeAsync(
     moveEmployee employee,
-    CancellationToken ct = default)
+    string apiKey, CancellationToken ct = default)
     {
         var client = new FlexForcePortTypeClient();
 
@@ -331,7 +332,7 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
 
             var response =
                 await client.wsdlMoveEmployeesAsync(
-                    options.ApiKey,
+                    apiKey,
                     [employee]);
 
             await client.CloseAsync();
@@ -392,6 +393,65 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
                 ErrorCode = "EXCEPTION",
                 Message = ex.Message
             };
+        }
+    }
+
+    public async Task<IReadOnlyList<UnitKeyV2>> GetUnitsAPIKeyAsync( CancellationToken ct = default)
+    {
+        var client = new FlexForcePortTypeClient();
+        try
+        {
+            logger.LogInformation("GetUnitsAPIKey starting.");
+            var response = await client.wsdlGetUnitsAPIKeyV2Async(options.ApiKey);
+            await client.CloseAsync();
+
+            var units = response?.@return;
+            if (units == null || units.Length == 0)
+            {
+                logger.LogInformation("Quinyx returned no units.");
+                return [];
+            }
+
+            logger.LogInformation("Quinyx returned {Count} unit(s).", units.Length);
+            return units;
+        }
+        catch (Exception ex)
+        {
+            client.Abort();
+            logger.LogError(ex, "GetUnitsAPIKey threw.");
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<Category>> GetCategoriesAsync(
+        int categoryType = 0,
+        string lastModified = "",
+        CancellationToken ct = default)
+    {
+        var client = new FlexForcePortTypeClient();
+        try
+        {
+            logger.LogInformation(
+                "GetCategories starting. categoryType={CategoryType}", categoryType);
+
+            var response = await client.wsdlGetCategoriesAsync(options.ApiKey, categoryType, lastModified);
+            await client.CloseAsync();
+
+            var categories = response?.@return;
+            if (categories == null || categories.Length == 0)
+            {
+                logger.LogInformation("Quinyx returned no categories.");
+                return [];
+            }
+
+            logger.LogInformation("Quinyx returned {Count} category(s).", categories.Length);
+            return categories;
+        }
+        catch (Exception ex)
+        {
+            client.Abort();
+            logger.LogError(ex, "GetCategories threw for categoryType={CategoryType}", categoryType);
+            throw;
         }
     }
 
