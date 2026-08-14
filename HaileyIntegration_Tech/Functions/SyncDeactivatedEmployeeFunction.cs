@@ -1,30 +1,31 @@
+using System.Net;
+using System.Text.Json;
 using HaileyIntegration.Tech.Models;
 using HaileyIntegration.Tech.Models.Dto;
 using HaileyIntegration.Tech.Quinyx;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
-using System.Net;
-using System.Text.Json;
 
 namespace HaileyIntegration.Tech.Functions;
 
-public sealed class SyncUpdatedSalaryToQuinyxFunction(
-    QuinyxSalaryUpdater salaryUpdater,
-    ILogger<SyncUpdatedSalaryToQuinyxFunction> logger)
+public sealed class SyncDeactivatedEmployeeFunction(
+    QuinyxEmployeeDeactivate employeeDeactivate,
+    ILogger<SyncDeactivatedEmployeeFunction> logger)
 {
-    [Function(nameof(SyncUpdatedSalaryToQuinyxFunction))]
+    [Function(nameof(SyncDeactivatedEmployeeFunction))]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "sync/quinyx/salary")]
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "sync/quinyx/deactivate")]
         HttpRequestData req,
         CancellationToken ct)
     {
         logger.LogInformation(
-            "SyncUpdatedSalaryToQuinyxFunction triggered. RequestId={RequestId}", req.FunctionContext.InvocationId);
+            "SyncDeactivatedEmployeeFunction triggered. RequestId={RequestId}", req.FunctionContext.InvocationId);
+
         HaileyDeatils? haileyDeatils;
         try
         {
-            haileyDeatils = await JsonSerializer.DeserializeAsync<HaileyDeatils>(req.Body, AppJsonOptions.Inbound, ct);
+            haileyDeatils = await JsonSerializer.DeserializeAsync<HaileyDeatils>(req.Body);
         }
         catch (JsonException ex)
         {
@@ -35,14 +36,15 @@ public sealed class SyncUpdatedSalaryToQuinyxFunction(
         }
 
         logger.LogInformation(
-            "Processing salary update for employee {EmploymentNumber}",
-            haileyDeatils.HaileyEmployeeDetails.JobData.General.EmploymentNumber);
+            "Deactivating employee {EmploymentNumber}",
+            haileyDeatils.HaileyEmployee.EmploymentNumber);
 
-        var result = await salaryUpdater.ExecuteAsync(haileyDeatils, ct);
+        var result = await employeeDeactivate.ExecuteAsync(haileyDeatils, ct);
 
         var status = result.Success ? HttpStatusCode.OK : HttpStatusCode.UnprocessableEntity;
         var response = req.CreateResponse(status);
-        await response.WriteAsJsonAsync(new { updateSalary = result }, ct);
+        result.ApiKey = null;
+        await response.WriteAsJsonAsync(new { updateEmployee = result }, ct);
         return response;
     }
 }

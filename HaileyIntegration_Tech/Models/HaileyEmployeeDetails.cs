@@ -17,8 +17,8 @@ public class HaileyEmployeeDetails
     [JsonPropertyName("jobData")]
     public JobData? JobData { get; set; }
 
-    //[JsonPropertyName("personal")]
-    //public Personal? Personal { get; set; }
+    [JsonPropertyName("personal")]
+    public Personal? Personal { get; set; }
 
     //[JsonPropertyName("compensation")]
     //public Compensation? Compensation { get; set; }
@@ -77,141 +77,141 @@ public class Employment
     [JsonPropertyName("lastDayOfEmployment")]
     public DateOnly?LastDayOfEmployment { get; set; }
 
-    //[JsonPropertyName("employments")]
-    //public List<EmploymentItem>? Employments { get; set; }
+    [JsonPropertyName("employments")]
+    public List<EmploymentItem>? Employments { get; set; }
 
     //[JsonPropertyName("casualEmployments")]
     //public List<object>? CasualEmployments { get; set; }
 }
 
-//public class EmploymentItem
-//{
-//    [JsonPropertyName("employmentId")]
-//    public string EmploymentId { get; set; }
+    public class EmploymentItem
+    {
+    [JsonPropertyName("employmentId")]
+    public string EmploymentId { get; set; }
 
-//    [JsonPropertyName("priority")]
-//    public int? Priority { get; set; }
+    //    [JsonPropertyName("priority")]
+    //    public int? Priority { get; set; }
 
-//    [JsonPropertyName("startDate")]
-//    public DateOnly?StartDate { get; set; }
+    [JsonPropertyName("startDate")]
+    public DateOnly? StartDate { get; set; }
 
-//    [JsonPropertyName("endDate")]
-//    public DateOnly? EndDate { get; set; }
+    [JsonPropertyName("endDate")]
+    public DateOnly? EndDate { get; set; }
 
-//    [JsonPropertyName("lastWorkingDay")]
-//    public DateOnly? LastWorkingDay { get; set; }
+    [JsonPropertyName("lastWorkingDay")]
+    public DateOnly? LastWorkingDay { get; set; }
 
-//    [JsonPropertyName("organizationalInformation")]
-//    public OrganizationalInformation? OrganizationalInformation { get; set; }
+    [JsonPropertyName("organizationalInformation")]
+    public OrganizationalInformation? OrganizationalInformation { get; set; }
 
-//    [JsonPropertyName("terms")]
-//    public Terms? Terms { get; set; }
+    [JsonPropertyName("terms")]
+    public Terms? Terms { get; set; }
 
-//    [JsonPropertyName("customFieldsData")]
-//    public Dictionary<string, string>? CustomFieldsData { get; set; }
+    //    [JsonPropertyName("customFieldsData")]
+    //    public Dictionary<string, string>? CustomFieldsData { get; set; }
 
-//    [JsonPropertyName("employmentSequenceNumber")]
-//    public string? EmploymentSequenceNumber { get; set; }
+    //    [JsonPropertyName("employmentSequenceNumber")]
+    //    public string? EmploymentSequenceNumber { get; set; }
 
-//    [JsonPropertyName("status")]
-//    public string? Status { get; set; }
-//}
+    //    [JsonPropertyName("status")]
+    //    public string? Status { get; set; }
+}
 
-//public class Terms
-//{
-//    [JsonPropertyName("employmentType")]
-//    public string? EmploymentType { get; set; }
+public class Terms
+{
+    //    [JsonPropertyName("employmentType")]
+    //    public string? EmploymentType { get; set; }
 
-//    [JsonPropertyName("noticePeriodMonths")]
-//    public int? NoticePeriodMonths { get; set; }
+    //    [JsonPropertyName("noticePeriodMonths")]
+    //    public int? NoticePeriodMonths { get; set; }
 
-//    [JsonPropertyName("noticePeriod")]
-//    public int? NoticePeriod { get; set; }
+    //    [JsonPropertyName("noticePeriod")]
+    //    public int? NoticePeriod { get; set; }
 
-//    [JsonPropertyName("noticePeriodUnit")]
-//    public string? NoticePeriodUnit { get; set; }
+    //    [JsonPropertyName("noticePeriodUnit")]
+    //    public string? NoticePeriodUnit { get; set; }
 
-//    [JsonPropertyName("endOfProbationaryPeriod")]
-//    public DateOnly? EndOfProbationaryPeriod { get; set; }
+    //    [JsonPropertyName("endOfProbationaryPeriod")]
+    //    public DateOnly? EndOfProbationaryPeriod { get; set; }
 
-//    [JsonPropertyName("fixedTermType")]
-//    public string? FixedTermType { get; set; }
+    //    [JsonPropertyName("fixedTermType")]
+    //    public string? FixedTermType { get; set; }
 
-//    [JsonPropertyName("endOfFixedTerm")]
-//    public DateOnly? EndOfFixedTerm { get; set; }
+    //    [JsonPropertyName("endOfFixedTerm")]
+    //    public DateOnly? EndOfFixedTerm { get; set; }
 
-//    [JsonPropertyName("scopePercentage")]
-//    public decimal? ScopePercentage { get; set; }
+    [JsonPropertyName("scopePercentage")]
+    public decimal? ScopePercentage { get; set; }
 
-//    [JsonPropertyName("scopeHours")]
-//    public decimal ScopeHours { get; set; }
+    //    [JsonPropertyName("scopeHours")]
+    //    public decimal ScopeHours { get; set; }
 
-//    [JsonPropertyName("vacationDays")]
-//    public int? VacationDays { get; set; }
+    //    [JsonPropertyName("vacationDays")]
+    //    public int? VacationDays { get; set; }
 
-//    [JsonPropertyName("substitutingForEmployeeId")]
-//    public string? SubstitutingForEmployeeId { get; set; }
+    //    [JsonPropertyName("substitutingForEmployeeId")]
+    //    public string? SubstitutingForEmployeeId { get; set; }
 
-//    [JsonPropertyName("substituteReasonId")]
-//    public string? SubstituteReasonId { get; set; }
-//}
+    //    [JsonPropertyName("substituteReasonId")]
+    //    public string? SubstituteReasonId { get; set; }
+}
 
-//public class Personal
-//{
-//    [JsonPropertyName("general")]
-//    public PersonalGeneral? General { get; set; }
+public class Personal
+{
+    [JsonPropertyName("general")]
+    public PersonalGeneral? General { get; set; }
 
-//    [JsonPropertyName("sensitive")]
-//    public Sensitive? Sensitive { get; set; }
+    [JsonPropertyName("sensitive")]
+    public Sensitive? Sensitive { get; set; }
 
-//    [JsonPropertyName("contactInformation")]
-//    public ContactInformation? ContactInformation { get; set; }
+    [JsonPropertyName("contactInformation")]
+    public ContactInformation? ContactInformation { get; set; }
 
-//    [JsonPropertyName("ice")]
-//    public Ice? Ice { get; set; }
-//}
+    //[JsonPropertyName("ice")]
+    //public Ice? Ice { get; set; }
+}
 
-//public class PersonalGeneral
-//{
-//    [JsonPropertyName("firstName")]
-//    public string? FirstName { get; set; }
+public class PersonalGeneral
+{
+    [JsonPropertyName("firstName")]
+    public string? FirstName { get; set; }
 
-//    [JsonPropertyName("lastName")]
-//    public string? LastName { get; set; }
-//}
+    [JsonPropertyName("lastName")]
+    public string? LastName { get; set; }
+}
 
-//public class Sensitive
-//{
-//    [JsonPropertyName("gender")]
-//    public string? Gender { get; set; }
+public class Sensitive
+{
+    [JsonPropertyName("gender")]
+    public string? Gender { get; set; }
 
-//    [JsonPropertyName("dateOfBirth")]
-//    public DateOnly? DateOfBirth { get; set; }
+    [JsonPropertyName("dateOfBirth")]
+    public DateOnly? DateOfBirth { get; set; }
 
-//    [JsonPropertyName("personalIdentityNumber")]
-//    public string? PersonalIdentityNumber { get; set; }
-//}
+    [JsonPropertyName("personalIdentityNumber")]
+    public string? PersonalIdentityNumber { get; set; }
+}
 
-//public class ContactInformation
-//{
-//    [JsonPropertyName("privateEmail")]
-//    public string? PrivateEmail { get; set; }
+public class ContactInformation
+{
+    [JsonPropertyName("privateEmail")]
+    public string? PrivateEmail { get; set; }
 
-//    [JsonPropertyName("privatePhone")]
-//    public string? PrivatePhone { get; set; }
+    [JsonPropertyName("privatePhone")]
+    public string? PrivatePhone { get; set; }
 
-//    [JsonPropertyName("streetAddress")]
-//    public string? StreetAddress { get; set; }
+    [JsonPropertyName("streetAddress")]
+    public string? StreetAddress { get; set; }
 
-//    [JsonPropertyName("postalCode")]
-//    public string? PostalCode { get; set; }
+    [JsonPropertyName("postalCode")]
+    public string? PostalCode { get; set; }
 
-//    [JsonPropertyName("city")]
-//    public string? City { get; set; }
+    [JsonPropertyName("city")]
+    public string? City { get; set; }
 
-//    [JsonPropertyName("country")]
-//    public string? Country { get; set; }
-//}
+    [JsonPropertyName("country")]
+    public string? Country { get; set; }
+}
 
 //public class Ice
 //{
@@ -290,32 +290,32 @@ public class Salary
 //    public string? Swift { get; set; }
 //}
 
-//public class OrganizationalInformation
-//{
-//    [JsonPropertyName("titleIds")]
-//    public List<string>? TitleIds { get; set; }
+public class OrganizationalInformation
+{
+    [JsonPropertyName("titleIds")]
+    public List<string>? TitleIds { get; set; }
 
-//    [JsonPropertyName("teamIds")]
-//    public List<string>? TeamIds { get; set; }
+    [JsonPropertyName("teamIds")]
+    public List<string>? TeamIds { get; set; }
 
-//    [JsonPropertyName("locationId")]
-//    public string LocationId { get; set; }
+    [JsonPropertyName("locationId")]
+    public string LocationId { get; set; }
 
-//    [JsonPropertyName("managerEmployeeId")]
-//    public string ManagerEmployeeId { get; set; }
+    [JsonPropertyName("managerEmployeeId")]
+    public string ManagerEmployeeId { get; set; }
 
-//    [JsonPropertyName("departmentId")]
-//    public string DepartmentId { get; set; }
+    [JsonPropertyName("departmentId")]
+    public string DepartmentId { get; set; }
 
-//    [JsonPropertyName("legalEntityId")]
-//    public string LegalEntityId { get; set; }
+    [JsonPropertyName("legalEntityId")]
+    public string LegalEntityId { get; set; }
 
-//    [JsonPropertyName("businessAreaId")]
-//    public string? BusinessAreaId { get; set; }
+    [JsonPropertyName("businessAreaId")]
+    public string? BusinessAreaId { get; set; }
 
-//    [JsonPropertyName("costCenterId")]
-//    public string CostCenterId { get; set; }
-//}
+    [JsonPropertyName("costCenterId")]
+    public string CostCenterId { get; set; }
+}
 
 public class SalaryHistory
 {

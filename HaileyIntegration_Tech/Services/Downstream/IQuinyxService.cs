@@ -7,8 +7,7 @@ namespace HaileyIntegration.Tech.Services.Downstream;
 public interface IQuinyxService
 {
     public string apiKey { get; set; }
-    Task<SyncResult> SyncEmployeeAsync(CanonicalEmployee employee, string apiKey, CancellationToken ct = default);
-    Task<IReadOnlyList<QuinyxRestaurant>> GetRestaurantsAsync(string changedSince, string apiKey, CancellationToken ct = default);
+    public string quinyxGroups { get; set; }
     Task<SyncResult> UpdateEmployeeAsync(UpdateEmployee employee, string apiKey, CancellationToken ct = default);
 
     Task<int?> GetAgreementIdAsync(string badgeNo, string apiKey, CancellationToken ct = default);

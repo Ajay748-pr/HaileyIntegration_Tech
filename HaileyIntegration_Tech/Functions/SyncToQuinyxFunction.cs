@@ -66,6 +66,7 @@ public sealed class SyncToQuinyxFunction(
 
         var status = agreeResult.Success ? HttpStatusCode.OK : HttpStatusCode.UnprocessableEntity;
         var response = req.CreateResponse(status);
+        empResult.ApiKey = null;
         await response.WriteAsJsonAsync(new
         {
             updateEmployee  = empResult,

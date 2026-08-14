@@ -54,6 +54,9 @@ public sealed class QuinyxAgreementUpdater(
                 if (isHourly) { agreementSalary.hourlySalary = latestHistory.Amount; agreementSalary.hourlySalarySpecified = true; }
                 else { agreementSalary.monthlySalary = latestHistory.Amount; agreementSalary.monthlySalarySpecified = true; }
                 dest.salariesAdd = [agreementSalary];
+                dest.expires = true;
+                dest.expiresSpecified = true;
+                
             }
         }
         dest.useTempSalary = false;
@@ -82,21 +85,9 @@ public sealed class QuinyxAgreementUpdater(
         else
         {
             dest.hourly = false;
-            dest.fullEmploymentHrs = details.HaileyEmployee.ScopePercentage ?? 0m;
+            dest.fullEmploymentHrs = details.HaileyEmployeeDetails.JobData.Employment.Employments[0].Terms.ScopePercentage ?? 0m;
             dest.fullEmploymentHrsSpecified = true;
         }
-        var employmentDateOfJoining = details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining;
-        var scopePercentage = details.HaileyEmployee.ScopePercentage;
-        
-        dest.employmentRatesAdd =
-        [
-            new EmploymentRate
-            {
-                fromDate = employmentDateOfJoining.HasValue ?employmentDateOfJoining.Value.ToDateTime(TimeOnly.MinValue): DateTime.Today,
-                rate     = scopePercentage.HasValue ? scopePercentage.Value :0
-            }
-        ];
-        
         if (details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining.HasValue == true)
         {
             dest.fromDate = details.HaileyEmployeeDetails.JobData.Employment.DateOfJoining.Value.ToDateTime(TimeOnly.MinValue);
