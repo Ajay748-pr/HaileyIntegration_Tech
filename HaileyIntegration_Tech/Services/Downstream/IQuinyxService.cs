@@ -32,4 +32,8 @@ public interface IQuinyxService
         int categoryType = 0,
         string lastModified = "",
         CancellationToken ct = default);
+
+    Task<IReadOnlyList<Section>> GetSectionsAsync(
+        string lastModified = "",
+        CancellationToken ct = default);
 }

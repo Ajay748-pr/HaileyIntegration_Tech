@@ -14,6 +14,7 @@ public sealed partial class QuinyxEmployeeUpdater(
 {
     [GeneratedRegex(@"[^0-9A-Za-z]")]
     private partial Regex NonAlphanumericRegex();
+    private string Unit;
     public async Task<SyncResult> ExecuteAsync(HaileyDeatils details, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(details.HaileyEmployeeDetails.JobData.General.EmploymentNumber)
@@ -37,7 +38,6 @@ public sealed partial class QuinyxEmployeeUpdater(
             "UpdateEmployee starting for EmploymentNumber={EmploymentNumber}", details.HaileyEmployeeDetails.JobData.General.EmploymentNumber);
 
         var apiKey = MapApiKey(details, ct);
-
         if (string.IsNullOrEmpty(apiKey))
         {
             return new SyncResult
@@ -50,12 +50,13 @@ public sealed partial class QuinyxEmployeeUpdater(
             };
         }
         var categories = await quinyxService.GetCategoriesAsync(ct: ct);
+        var section = await quinyxService.GetSectionsAsync(ct: ct);
         var staffCategory = categories.FirstOrDefault(c => c.categoryName == "Beh. app Medarbetare");
         if (staffCategory is null)
             logger.LogWarning("No Quinyx category matched 'Beh. app Medarbetare'.");
 
         var quinyxEmployee = MapToQuinyxEmployee(details);
-
+        
         if (staffCategory is not null)
         {
             quinyxEmployee.staffCat = staffCategory.id;
@@ -80,9 +81,11 @@ public sealed partial class QuinyxEmployeeUpdater(
         {
             return null;
         }
+        
         var matchedUnit = units.Result.FirstOrDefault(u => Fuzz.Ratio(u.name, department.Name) >= 70);
         if (matchedUnit is null)
         {
+            Unit = department.Name;
             var belongstoDepartment = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == department.BelongingToDepartmentId);
             matchedUnit = units.Result.FirstOrDefault(u => Fuzz.Ratio(u.name, belongstoDepartment.Name) >= 70);
         }
@@ -109,7 +112,7 @@ public sealed partial class QuinyxEmployeeUpdater(
             reportingTo = src.HaileyMangerEmployeeNumber,
             active = 1,
             activeSpecified = true,
-
+            extSectionId= Unit,
         };
 
         if (!string.IsNullOrWhiteSpace(src.HaileyEmployeeDetails.Personal.Sensitive.Gender))

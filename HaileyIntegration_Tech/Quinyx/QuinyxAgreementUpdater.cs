@@ -34,7 +34,7 @@ public sealed class QuinyxAgreementUpdater(
         {
             badgeNo = details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber,
         };
-        var salary = details.HaileyEmployeeDetails.Salaries?.FirstOrDefault();
+        var salary = details.HaileyEmployeeDetails.Salaries?.LastOrDefault();
         var isHourly = false;
         if (salary?.History?.Count > 0)
         {

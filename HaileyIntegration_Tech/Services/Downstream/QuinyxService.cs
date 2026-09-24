@@ -1,5 +1,3 @@
-using System.Net.Http.Json;
-using HaileyIntegration.Tech.Models;
 using HaileyIntegration.Tech.Models.Dto;
 using Microsoft.Extensions.Logging;
 using ServiceReference1;
@@ -14,12 +12,12 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
     // ─── GetAgreementId ──────────────────────────────────────────────────────
     // Fetches the first active agreement ID for a given badge number.
     // Used before UpdateAgreementV2 so Quinyx can locate the correct agreement record.
-    public async Task<int?> GetAgreementIdAsync(string badgeNo,string apiKey, CancellationToken ct = default)
+    public async Task<int?> GetAgreementIdAsync(string badgeNo, string apiKey, CancellationToken ct = default)
     {
         var client = new FlexForcePortTypeClient();
         try
         {
-            var response = await client.wsdlGetAgreementsAsync( apiKey, 0, 0, badgeNo, "");
+            var response = await client.wsdlGetAgreementsAsync(apiKey, 0, 0, badgeNo, "");
             await client.CloseAsync();
 
             var agreement = response?.@return?.FirstOrDefault();
@@ -49,7 +47,7 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
         logger.LogInformation(
             "UpdateEmployeeAsync starting for badgeNo={BadgeNo}", employee.badgeNo);
 
-        var result = await TriggerUpdateEmployeeSoapAsync(employee,apiKey, ct);
+        var result = await TriggerUpdateEmployeeSoapAsync(employee, apiKey, ct);
 
         logger.LogInformation(
             "UpdateEmployeeAsync finished for badgeNo={BadgeNo} Success={Success}",
@@ -70,7 +68,7 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
                 employee.badgeNo, employee.givenName, employee.familyName, employee.email,
                 employee.phoneNo,
                 employee.employedDateSpecified ? employee.employedDate.ToString("yyyy-MM-dd") : "(not set)",
-                employee.leaveDateSpecified    ? employee.leaveDate.ToString("yyyy-MM-dd")    : "(not set)");
+                employee.leaveDateSpecified ? employee.leaveDate.ToString("yyyy-MM-dd") : "(not set)");
 
             var response = await client.wsdlUpdateEmployeesAsync(apiKey, [employee]);
 
@@ -85,11 +83,11 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
 
                 return new SyncResult
                 {
-                    Success        = false,
+                    Success = false,
                     EmployeeNumber = employee.badgeNo,
-                    TargetSystem   = "Quinyx",
-                    ErrorCode      = "EMPTY_RESPONSE",
-                    Message        = "Quinyx returned no employee records in the response."
+                    TargetSystem = "Quinyx",
+                    ErrorCode = "EMPTY_RESPONSE",
+                    Message = "Quinyx returned no employee records in the response."
                 };
             }
 
@@ -99,10 +97,10 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
 
             return new SyncResult
             {
-                Success        = true,
+                Success = true,
                 EmployeeNumber = employee.badgeNo,
-                TargetSystem   = "Quinyx",
-                Message        = $"Updated successfully. Records in response: {returned.Length}"
+                TargetSystem = "Quinyx",
+                Message = $"Updated successfully. Records in response: {returned.Length}"
             };
         }
         catch (Exception ex)
@@ -115,11 +113,11 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
 
             return new SyncResult
             {
-                Success        = false,
+                Success = false,
                 EmployeeNumber = employee.badgeNo,
-                TargetSystem   = "Quinyx",
-                ErrorCode      = "EXCEPTION",
-                Message        = ex.Message
+                TargetSystem = "Quinyx",
+                ErrorCode = "EXCEPTION",
+                Message = ex.Message
             };
         }
     }
@@ -305,7 +303,7 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
         }
     }
 
-    public async Task<IReadOnlyList<UnitKeyV2>> GetUnitsAPIKeyAsync( CancellationToken ct = default)
+    public async Task<IReadOnlyList<UnitKeyV2>> GetUnitsAPIKeyAsync(CancellationToken ct = default)
     {
         var client = new FlexForcePortTypeClient();
         try
@@ -396,6 +394,37 @@ public sealed class QuinyxService(HttpClient http, QuinyxOptions options, ILogge
         {
             client.Abort();
             logger.LogError(ex, "GetAgreementTemplates threw for agreementTemplateId={TemplateId}", agreementTemplateId);
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<Section>> GetSectionsAsync(
+        string lastModified = "",
+        CancellationToken ct = default)
+    {
+        var client = new FlexForcePortTypeClient();
+        try
+        {
+            logger.LogInformation(
+                "GetSections starting. lastModified={LastModified}", lastModified);
+
+            var response = await client.wsdlGetSectionsAsync(options.ApiKey, lastModified);
+            await client.CloseAsync();
+
+            var sections = response?.@return;
+            if (sections == null || sections.Length == 0)
+            {
+                logger.LogInformation("Quinyx returned no sections.");
+                return [];
+            }
+
+            logger.LogInformation("Quinyx returned {Count} section(s).", sections.Length);
+            return sections;
+        }
+        catch (Exception ex)
+        {
+            client.Abort();
+            logger.LogError(ex, "GetSections threw for lastModified={LastModified}", lastModified);
             throw;
         }
     }
