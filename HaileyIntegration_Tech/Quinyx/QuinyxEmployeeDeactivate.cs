@@ -11,34 +11,39 @@ public sealed partial class QuinyxEmployeeDeactivate(
     IQuinyxService quinyxService,
     ILogger<QuinyxEmployeeUpdater> logger)
 {
-    public async Task<SyncResult> ExecuteAsync(HaileyDeatils details, CancellationToken ct = default)
+    public async Task<SyncResult> ExecuteAsync(HaileyDeatilsToDeactivate details, CancellationToken ct = default)
     {
-        if (string.IsNullOrEmpty(details.HaileyEmployee.EmploymentNumber)
-            || details.HaileyEmployee.LastDayOfEmployment == null)
+        if (string.IsNullOrEmpty(details.DeactivateHaileyEmployee.EmploymentNumber)
+            || details.DeactivateHaileyEmployee.LastDayOfEmployment == null)
         {
             logger.LogError("Required fields are missing.");
             return new SyncResult
             {
                 Success = false,
-                EmployeeNumber = details.HaileyEmployee.EmploymentNumber,
+                EmployeeNumber = details.DeactivateHaileyEmployee.EmploymentNumber,
                 TargetSystem = "Quinyx",
                 ErrorCode = "404",
                 Message = "required fields are missing"
             };
         }
-        if (details.HaileyEmployee.LastDayOfEmployment.Value != DateOnly.FromDateTime(DateTime.Today))
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var twoDaysAgo = today.AddDays(-2);
+
+        var inactiveEmployees = details.DeactivateHaileyEmployee.LastDayOfEmployment.Value >= twoDaysAgo &&
+                        details.DeactivateHaileyEmployee.LastDayOfEmployment.Value <= today ? false : true;
+        if (inactiveEmployees)
         {
             return new SyncResult
             {
                 Success = false,
-                EmployeeNumber = details.HaileyEmployee.EmploymentNumber,
+                EmployeeNumber = details.DeactivateHaileyEmployee.EmploymentNumber,
                 TargetSystem = "Quinyx",
                 ErrorCode = "400",
-                Message = "lastDayOfEmployment is not equal to todays date"
+                Message = "lastDayOfEmployment is future date"
             };
         }
         logger.LogInformation(
-            "DeactivateEmployee starting for EmploymentNumber={EmploymentNumber}", details.HaileyEmployee.EmploymentNumber);
+            "DeactivateEmployee starting for EmploymentNumber={EmploymentNumber}", details.DeactivateHaileyEmployee.EmploymentNumber);
 
         var apiKey = MapApiKey(details, ct);
 
@@ -47,7 +52,7 @@ public sealed partial class QuinyxEmployeeDeactivate(
             return new SyncResult
             {
                 Success = false,
-                EmployeeNumber = details.HaileyEmployee.EmploymentNumber,
+                EmployeeNumber = details.DeactivateHaileyEmployee.EmploymentNumber,
                 TargetSystem = "Quinyx",
                 ErrorCode = "404",
                 Message = "No matching unit found"
@@ -66,9 +71,9 @@ public sealed partial class QuinyxEmployeeDeactivate(
         return result;
     }
 
-    private string MapApiKey(HaileyDeatils details, CancellationToken ct)
+    private string MapApiKey(HaileyDeatilsToDeactivate details, CancellationToken ct)
     {
-        var department = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == details.HaileyEmployee.DepartmentId);
+        var department = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == details.DeactivateHaileyEmployee.DepartmentId);
         var units = quinyxService.GetUnitsAPIKeyAsync(ct);
         if (!quinyxService.quinyxGroups.ToLower().Contains(department.Name.ToLower()))
         {
@@ -84,19 +89,19 @@ public sealed partial class QuinyxEmployeeDeactivate(
 
     }
 
-    private UpdateEmployee MapToQuinyxEmployee(HaileyDeatils src)
+    private UpdateEmployee MapToQuinyxEmployee(HaileyDeatilsToDeactivate src)
     {
         var dest = new UpdateEmployee
         {
-            badgeNo = src.HaileyEmployee.EmploymentNumber,
+            badgeNo = src.DeactivateHaileyEmployee.EmploymentNumber,
             passive = 1,
             passiveSpecified = true,
             active = 0,
             activeSpecified = true,
         };
-        if (src.HaileyEmployee.LastDayOfEmployment.HasValue)
+        if (src.DeactivateHaileyEmployee.LastDayOfEmployment.HasValue)
         {
-            dest.leaveDate = src.HaileyEmployee.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
+            dest.leaveDate = src.DeactivateHaileyEmployee.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
             dest.leaveDateSpecified = true;
             
         }

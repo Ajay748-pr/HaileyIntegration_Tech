@@ -31,15 +31,24 @@ public sealed class IntegrationClient
 
     }
 
-    public async Task SendUpdateEmployeeAsync(string employeeId)
+    public async Task SendUpdateEmployeeAsync(string employeeData, string CompanyData, string Manager)
     {
         var client = new HttpClient();
         var request = new HttpRequestMessage(HttpMethod.Post, _configuration["NewEmployeeApiUrl"]);
 
-        var jsonToSend = "{\"employeeId\": " + employeeId + " }";
+        var jsonToSend = "{\"haileyEmployeeDetails\": " + employeeData + ",\r\n  \"haileyCompany\": " + CompanyData + ",\r\n  \"haileyManagerEmployeeNumber\": \"" + Manager + "\"}";
         var content = new StringContent(jsonToSend, null, "application/json");
         request.Content = content;
 
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task SendLogicAppRequest(string employeeData)
+    {
+        var client = new HttpClient();
+        var request = new HttpRequestMessage(HttpMethod.Post, _configuration["NewEmployeeLogicAppUrl"]+ employeeData);
 
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();

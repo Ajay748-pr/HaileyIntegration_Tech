@@ -34,6 +34,8 @@ public sealed class QuinyxAgreementUpdater(
         {
             badgeNo = details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber,
         };
+        var employment = details.HaileyEmployeeDetails.JobData.Employment.Employments.Where(x => x.EndDate == null || x.EndDate > DateOnly.FromDateTime(DateTime.Today));
+       
         var salary = details.HaileyEmployeeDetails.Salaries?.LastOrDefault();
         var isHourly = false;
         if (salary?.History?.Count > 0)
@@ -75,18 +77,35 @@ public sealed class QuinyxAgreementUpdater(
                 "No Quinyx agreement template matched for SalaryType={SalaryType}. extTemplateId/extAgreementId will not be set.",
                 salary?.SalaryType);
         }
-
+        var fromDate = DateTime.Now;
+        var scopeHour = 0m;
+        if(employment.Any(x=>x.EndDate is null))
+        { 
+            scopeHour = (decimal)employment.FirstOrDefault(x => x.EndDate is null).Terms.ScopePercentage;
+            fromDate = employment.FirstOrDefault(x => x.EndDate is null).StartDate.Value.ToDateTime(TimeOnly.MinValue);
+        }
+            
+        else if (employment.Where(x => x.EndDate.HasValue).Max(x => x.EndDate).HasValue)
+        {
+            scopeHour = (decimal)employment.Where(x => x.EndDate.HasValue).OrderByDescending(x => x.EndDate).FirstOrDefault()?.Terms.ScopePercentage;
+            fromDate = (DateTime)(employment.Where(x => x.EndDate.HasValue).OrderByDescending(x => x.EndDate).FirstOrDefault()?.StartDate.Value.ToDateTime(TimeOnly.MinValue));
+        }
+     
         if (isHourly)
         {
             dest.hourly = true;
-            dest.fullEmploymentHrs = 0m;
+            dest.fullEmploymentHrs = scopeHour;
             dest.fullEmploymentHrsSpecified = true;
+            dest.hourlySpecified = true;
+            dest.employmentRatesAdd = [new EmploymentRate { fromDate = fromDate, rate = scopeHour *100 }];
         }
         else
         {
             dest.hourly = false;
-            dest.fullEmploymentHrs = details.HaileyEmployeeDetails.JobData.Employment.Employments[0].Terms.ScopePercentage ?? 0m;
+            dest.hourlySpecified = true;
+            dest.fullEmploymentHrs = scopeHour;
             dest.fullEmploymentHrsSpecified = true;
+            dest.employmentRatesAdd = [new EmploymentRate { fromDate = fromDate, rate = scopeHour*100 }];
         }
         if (details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining.HasValue == true)
         {

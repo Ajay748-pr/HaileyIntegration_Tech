@@ -19,7 +19,7 @@ public sealed partial class QuinyxEmployeeUpdater(
     {
         if (string.IsNullOrEmpty(details.HaileyEmployeeDetails.JobData.General.EmploymentNumber)
             || string.IsNullOrEmpty(details.HaileyEmployeeDetails.JobData.General.CompanyEmail)
-            || string.IsNullOrEmpty(details.HaileyMangerEmployeeNumber)
+            || string.IsNullOrEmpty(details.HaileyManagerEmployeeNumber)
             || string.IsNullOrEmpty(details.HaileyEmployeeDetails.JobData.Employment.Employments[0].OrganizationalInformation.DepartmentId)
             || details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining == null)
         {
@@ -76,18 +76,18 @@ public sealed partial class QuinyxEmployeeUpdater(
     private string MapApiKey(HaileyDeatils details, CancellationToken ct)
     {
         var department = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == details.HaileyEmployeeDetails.JobData.Employment.Employments[0].OrganizationalInformation.DepartmentId);
-        var units = quinyxService.GetUnitsAPIKeyAsync(ct);
-        if (!quinyxService.quinyxGroups.Contains(department.Name))
+        var units = quinyxService.GetUnitsAPIKeyAsync(ct).Result;
+        if (!quinyxService.quinyxGroups.ToLower().Contains(department.Name.ToLower()))
         {
             return null;
         }
         
-        var matchedUnit = units.Result.FirstOrDefault(u => Fuzz.Ratio(u.name, department.Name) >= 70);
+        var matchedUnit = units.FirstOrDefault(u => Fuzz.Ratio(u.name, department.Name) >= 80);
         if (matchedUnit is null)
         {
             Unit = department.Name;
             var belongstoDepartment = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == department.BelongingToDepartmentId);
-            matchedUnit = units.Result.FirstOrDefault(u => Fuzz.Ratio(u.name, belongstoDepartment.Name) >= 70);
+            matchedUnit = units.FirstOrDefault(u => Fuzz.Ratio(u.name, belongstoDepartment.Name) >= 70);
         }
         return matchedUnit?.API_key ?? "";
 
@@ -109,7 +109,7 @@ public sealed partial class QuinyxEmployeeUpdater(
             zip = src.HaileyEmployeeDetails.Personal.ContactInformation.PostalCode,
             city = src.HaileyEmployeeDetails.Personal.ContactInformation.City,
             country = src.HaileyEmployeeDetails.Personal.ContactInformation.Country,
-            reportingTo = src.HaileyMangerEmployeeNumber,
+            reportingTo = src.HaileyManagerEmployeeNumber,
             active = 1,
             activeSpecified = true,
             extSectionId= Unit,

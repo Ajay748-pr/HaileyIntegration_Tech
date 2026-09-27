@@ -57,7 +57,7 @@ public class HaileyWebhook
 
         try
         {
-            var (caller, employeeData, employeeId) = await _haileyClient.GetEmployeeAsync(requestPayload.EmployeeId);
+            var (caller, employeeData, employeeId, mangerId) = await _haileyClient.GetEmployeeAsync(requestPayload.EmployeeId);
             if (caller== "newSalary")
             {
                 var companyData = await _haileyClient.GetCompanyAsync();
@@ -70,10 +70,12 @@ public class HaileyWebhook
             }
             if (caller== "newEmployee")
             {
+                var managerEmployeeNumber = await _haileyClient.GetMangerEmployeeNumberAsync(mangerId);
                 var message = "new employee request sent for " + employeeId;
                 _logger.LogInformation(message);
                 var companyData = await _haileyClient.GetCompanyAsync();
-                await _integrationClient.SendUpdateEmployeeAsync(employeeId);
+                await _integrationClient.SendUpdateEmployeeAsync(employeeData, companyData, managerEmployeeNumber);
+                _integrationClient.SendLogicAppRequest(employeeData);
                 return new OkObjectResult(new
                 {
                     message,
@@ -112,6 +114,9 @@ public sealed class RequestPayload
 {
     public string? CompanyId { get; init; }
     public string? EmployeeId { get; init; }
+    public organizationalBelonging? organizationalBelonging { get; init; }
+
+
 }
 
 public sealed class EmployeeResponse
@@ -123,6 +128,10 @@ public sealed class EmployeeResponse
 public sealed class Salary
 {
     public List<SalaryHistoryItem>? History { get; init; }
+}
+public sealed class organizationalBelonging
+{
+    public string managerEmployeeId { get; init; }
 }
 
 public sealed class SalaryHistoryItem

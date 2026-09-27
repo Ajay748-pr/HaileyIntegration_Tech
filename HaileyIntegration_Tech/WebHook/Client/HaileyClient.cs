@@ -12,6 +12,7 @@ public sealed class HaileyClient
     };
 
     private readonly HttpClient _httpClient;
+    private readonly string Manager;
     private readonly IConfiguration _configuration;
 
     public HaileyClient(HttpClient httpClient, IConfiguration configuration)
@@ -20,7 +21,43 @@ public sealed class HaileyClient
         _configuration = configuration;
     }
 
-    public async Task<(string, string,string)> GetEmployeeAsync(string employeeId, CancellationToken cancellationToken = default)
+    public async Task<string> GetMangerEmployeeNumberAsync(string employeeId, CancellationToken cancellationToken = default)
+    {
+        var employeeApiUrl = _configuration["HaileyEmployeeApiUrl"] ?? _configuration["EmployeeApiUrl"];
+        if (string.IsNullOrWhiteSpace(employeeApiUrl))
+        {
+            throw new InvalidOperationException("Employee API URL is not configured.");
+        }
+
+        var employeeUrl = employeeApiUrl.Replace("{employeeId}", Uri.EscapeDataString(employeeId));
+        using var request = new HttpRequestMessage(HttpMethod.Get, employeeUrl);
+
+        var haileyApiKey = _configuration["HaileyApiKey"];
+        if (!string.IsNullOrWhiteSpace(haileyApiKey))
+        {
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", haileyApiKey);
+        }
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"Employee API call failed with status {(int)response.StatusCode}: {responseBody}");
+        }
+
+        try
+        {
+            var haileyDeatils = await JsonSerializer.DeserializeAsync<HaileyEmployeeDetails>(await response.Content.ReadAsStreamAsync());
+            
+            return (haileyDeatils.JobData.General.EmploymentNumber);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException("Unable to parse employee response payload.", ex);
+        }
+    }
+    public async Task<(string, string,string,string)> GetEmployeeAsync(string employeeId, CancellationToken cancellationToken = default)
     {
         var employeeApiUrl = _configuration["HaileyEmployeeApiUrl"] ?? _configuration["EmployeeApiUrl"];
         if (string.IsNullOrWhiteSpace(employeeApiUrl))
@@ -49,7 +86,7 @@ public sealed class HaileyClient
         {
             var haileyDeatils = await JsonSerializer.DeserializeAsync<HaileyEmployeeDetails>(await response.Content.ReadAsStreamAsync());
             var caller = callIntegration(haileyDeatils);
-            return (caller, responseBody, haileyDeatils?.EmployeeId);
+            return (caller, responseBody, haileyDeatils?.EmployeeId, haileyDeatils?.JobData?.Employment?.Employments[0].OrganizationalInformation.ManagerEmployeeId);
         }
         catch (JsonException ex)
         {
@@ -64,8 +101,10 @@ public sealed class HaileyClient
             || haileyDeatils?.JobData?.Employment?.Employments is null
             || string.IsNullOrEmpty(haileyDeatils?.JobData?.Employment?.Employments[0].OrganizationalInformation.ManagerEmployeeId)
             || string.IsNullOrEmpty(haileyDeatils?.JobData?.Employment?.Employments[0].OrganizationalInformation.DepartmentId)
-            )
+            ) {
             return null;
+        }
+           
 
         if (haileyDeatils?.JobData?.Employment?.LastDayOfEmployment < DateOnly.FromDateTime(DateTime.Today))//employee left
             return "inactiveEmployee";

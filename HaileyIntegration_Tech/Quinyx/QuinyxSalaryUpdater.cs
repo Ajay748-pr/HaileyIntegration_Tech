@@ -24,6 +24,7 @@ public sealed class QuinyxSalaryUpdater(
     {
         var department = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == details.HaileyEmployeeDetails.JobData.Employment.Employments.FirstOrDefault().OrganizationalInformation.DepartmentId);
         var units = quinyxService.GetUnitsAPIKeyAsync(ct);
+       
         if (!quinyxService.quinyxGroups.Contains(department.Name))
         {
             return null;
@@ -44,8 +45,9 @@ public sealed class QuinyxSalaryUpdater(
         {
             badgeNo = details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber,
         };
+        var employment = details.HaileyEmployeeDetails.JobData.Employment.Employments.Where(x => x.EndDate == null || x.EndDate > DateOnly.FromDateTime(DateTime.Today));
 
-        var salary = details.HaileyEmployeeDetails.Salaries?.FirstOrDefault();
+        var salary = details.HaileyEmployeeDetails.Salaries?.LastOrDefault();
         var isHourly = false;
         if (salary?.History?.Count > 0)
         {
@@ -71,8 +73,6 @@ public sealed class QuinyxSalaryUpdater(
                     };
                 }
 
-                var quinyxtemplates = quinyxService.GetAgreementTemplatesAsync(ct: ct).Result;
-
                 var agreementSalary = new AgreementSalary
                 {
                     fromDate = latestHistory.Date!.Value.ToDateTime(TimeOnly.MinValue),
@@ -95,38 +95,44 @@ public sealed class QuinyxSalaryUpdater(
 
         dest.useTempSalary = false;
 
-        var result = quinyxService.UpdateAgreementAsync(dest, apiKey,ct).Result;
+        var fromDate = DateTime.Now;
+        var scopeHour = 0m;
+        if (employment.Any(x => x.EndDate is null))
+        {
+            scopeHour = (decimal)employment.FirstOrDefault(x => x.EndDate is null).Terms.ScopePercentage;
+            fromDate = employment.FirstOrDefault(x => x.EndDate is null).StartDate.Value.ToDateTime(TimeOnly.MinValue);
+        }
 
-        logger.LogInformation(
-            "UpdateAgreement completed. Success={Success} EmployeeNumber={EmployeeNumber} Message={Message}",
-            result.Success, result.EmployeeNumber, result.Message);
+        else if (employment.Where(x => x.EndDate.HasValue).Max(x => x.EndDate).HasValue)
+        {
+            scopeHour = (decimal)employment.Where(x => x.EndDate.HasValue).OrderByDescending(x => x.EndDate).FirstOrDefault()?.Terms.ScopePercentage;
+            fromDate = (DateTime)(employment.Where(x => x.EndDate.HasValue).OrderByDescending(x => x.EndDate).FirstOrDefault()?.StartDate.Value.ToDateTime(TimeOnly.MinValue));
+        }
+
+
+
         if (isHourly)
         {
             dest.hourly = true;
-            dest.fullEmploymentHrs = 0m;
+            dest.fullEmploymentHrs = scopeHour;
             dest.fullEmploymentHrsSpecified = true;
+            dest.hourlySpecified = true;
+            dest.employmentRatesAdd = [new EmploymentRate { fromDate = fromDate, rate = scopeHour * 100 }];
         }
         else
         {
             dest.hourly = false;
-            dest.fullEmploymentHrs = details.HaileyEmployeeDetails.JobData.Employment.Employments[0].Terms.ScopePercentage ?? 0m;
+            dest.hourlySpecified = true;
+            dest.fullEmploymentHrs = scopeHour;
             dest.fullEmploymentHrsSpecified = true;
+            dest.employmentRatesAdd = [new EmploymentRate { fromDate = fromDate, rate = scopeHour * 100 }];
+
         }
+        var result = quinyxService.UpdateAgreementAsync(dest, apiKey, ct).Result;
 
-        //if (details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining.HasValue == true)
-        //{
-        //    dest.fromDate = details.HaileyEmployeeDetails.JobData.Employment.DateOfJoining.Value.ToDateTime(TimeOnly.MinValue);
-        //    dest.fromDateSpecified = true;
-        //}
-
-        //if (details.HaileyEmployeeDetails.JobData?.Employment?.LastDayOfEmployment.HasValue == true)
-        //{
-        //    dest.toDate = details.HaileyEmployeeDetails.JobData.Employment.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
-        //    dest.toDateSpecified = true;
-        //}
-
-        dest.expires = true;
-        dest.expiresSpecified = true;
+        logger.LogInformation(
+            "UpdateAgreement completed. Success={Success} EmployeeNumber={EmployeeNumber} Message={Message}",
+            result.Success, result.EmployeeNumber, result.Message);
 
         return new SyncResult
         {

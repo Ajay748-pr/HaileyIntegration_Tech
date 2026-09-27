@@ -22,10 +22,10 @@ public sealed class SyncDeactivatedEmployeeFunction(
         logger.LogInformation(
             "SyncDeactivatedEmployeeFunction triggered. RequestId={RequestId}", req.FunctionContext.InvocationId);
 
-        HaileyDeatils? haileyDeatils;
+        HaileyDeatilsToDeactivate? employeeToDeactivate;
         try
         {
-            haileyDeatils = await JsonSerializer.DeserializeAsync<HaileyDeatils>(req.Body);
+            employeeToDeactivate = await JsonSerializer.DeserializeAsync<HaileyDeatilsToDeactivate>(req.Body);
         }
         catch (JsonException ex)
         {
@@ -37,9 +37,9 @@ public sealed class SyncDeactivatedEmployeeFunction(
 
         logger.LogInformation(
             "Deactivating employee {EmploymentNumber}",
-            haileyDeatils.HaileyEmployee.EmploymentNumber);
+            employeeToDeactivate.DeactivateHaileyEmployee.EmploymentNumber);
 
-        var result = await employeeDeactivate.ExecuteAsync(haileyDeatils, ct);
+        var result = await employeeDeactivate.ExecuteAsync(employeeToDeactivate, ct);
 
         var status = result.Success ? HttpStatusCode.OK : HttpStatusCode.UnprocessableEntity;
         var response = req.CreateResponse(status);
