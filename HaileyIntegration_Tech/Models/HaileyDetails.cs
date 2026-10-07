@@ -9,4 +9,7 @@ public class HaileyDeatils
     public HaileyCompany HaileyCompany { get; set; }
     [JsonPropertyName("haileyManagerEmployeeNumber")]
     public string HaileyManagerEmployeeNumber { get; set; }
+
+    [JsonPropertyName("skipEmployee")]
+    public string skipEmployee { get; set; }
 }

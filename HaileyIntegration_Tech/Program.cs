@@ -15,7 +15,7 @@ builder.ConfigureFunctionsWebApplication();
 // Quinyx sync handlers
 builder.Services.AddScoped<HaileyIntegration.Tech.Quinyx.QuinyxEmployeeUpdater>();
 builder.Services.AddScoped<HaileyIntegration.Tech.Quinyx.QuinyxAgreementUpdater>();
-builder.Services.AddScoped<HaileyIntegration.Tech.Quinyx.QuinyxSalaryUpdater>();
+//builder.Services.AddScoped<HaileyIntegration.Tech.Quinyx.QuinyxSalaryUpdater>();
 builder.Services.AddScoped<HaileyIntegration.Tech.Quinyx.QuinyxEmployeeDeactivate>();
 
 // Downstream services — each gets its own named HttpClient for independent BaseAddress + retry config

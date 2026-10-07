@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
-using System.ServiceModel.Channels;
 using System.Text.Json;
 
 namespace HaileyWebhook;
@@ -58,30 +57,21 @@ public class HaileyWebhook
         try
         {
             var (caller, employeeData, employeeId, mangerId) = await _haileyClient.GetEmployeeAsync(requestPayload.EmployeeId);
-            if (caller== "newSalary")
-            {
-                var companyData = await _haileyClient.GetCompanyAsync();
-                _integrationClient.SendAgreementAsync(employeeData, companyData);
-                _logger.LogInformation("new agreement request sent for " + employeeId);
-                return new OkObjectResult(new
-                {
-                    message = "new agreement request sent for "+employeeId,
-                });
-            }
-            if (caller== "newEmployee")
+            
+            if (caller == "newEmployee" || caller == "newSalary")
             {
                 var managerEmployeeNumber = await _haileyClient.GetMangerEmployeeNumberAsync(mangerId);
                 var message = "new employee request sent for " + employeeId;
                 _logger.LogInformation(message);
                 var companyData = await _haileyClient.GetCompanyAsync();
-                await _integrationClient.SendUpdateEmployeeAsync(employeeData, companyData, managerEmployeeNumber);
+                _integrationClient.SendUpdateEmployeeAsync(employeeData, companyData, managerEmployeeNumber);
                 _integrationClient.SendLogicAppRequest(employeeData);
                 return new OkObjectResult(new
                 {
                     message,
                 });
             }
-            if (caller== "inactiveEmployee")
+            if (caller == "inactiveEmployee")
             {
                 var message = "inactive user.";
                 _logger.LogInformation(message);

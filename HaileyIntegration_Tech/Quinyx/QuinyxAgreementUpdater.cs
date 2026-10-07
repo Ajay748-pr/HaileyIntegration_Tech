@@ -3,6 +3,7 @@ using HaileyIntegration.Tech.Models.Dto;
 using HaileyIntegration.Tech.Services.Downstream;
 using Microsoft.Extensions.Logging;
 using ServiceReference1;
+using FuzzySharp;
 
 namespace HaileyIntegration.Tech.Quinyx;
 
@@ -15,7 +16,10 @@ public sealed class QuinyxAgreementUpdater(
         logger.LogInformation(
             "UpdateAgreement starting for EmploymentNumber={EmploymentNumber}",
             details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber);
-
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            apiKey = MapApiKey(details, ct);
+        }
         var quinyxTemplates = await quinyxService.GetAgreementTemplatesAsync(ct: ct);
         var quinyxAgreement = MapToQuinyxAgreement(details, quinyxTemplates);
         
@@ -26,6 +30,26 @@ public sealed class QuinyxAgreementUpdater(
             result.Success, result.EmployeeNumber, result.Message);
 
         return result;
+    }
+
+
+    private string MapApiKey(HaileyDeatils details, CancellationToken ct)
+    {
+        var department = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == details.HaileyEmployeeDetails.JobData.Employment.Employments[0].OrganizationalInformation.DepartmentId);
+        var units = quinyxService.GetUnitsAPIKeyAsync(ct).Result;
+        if (!quinyxService.quinyxGroups.ToLower().Contains(department.Name.ToLower()))
+        {
+            return null;
+        }
+
+        var matchedUnit = units.FirstOrDefault(u => Fuzz.Ratio(u.name, department.Name) >= 80);
+        if (matchedUnit is null)
+        {
+            var belongstoDepartment = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == department.BelongingToDepartmentId);
+            matchedUnit = units.FirstOrDefault(u => Fuzz.Ratio(u.name, belongstoDepartment.Name) >= 70);
+        }
+        return matchedUnit?.API_key ?? "";
+
     }
 
     private UpdateAgreementV2 MapToQuinyxAgreement(HaileyDeatils details, IReadOnlyList<AgreementTemplate> templates)

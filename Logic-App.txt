@@ -1,0 +1,171 @@
+{
+    "definition": {
+        "metadata": {
+            "notes": {}
+        },
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "contentVersion": "1.0.0.0",
+        "triggers": {
+            "When_an_HTTP_request_is_received": {
+                "type": "Request",
+                "kind": "Http"
+            }
+        },
+        "actions": {
+            "GetEmployeeDetails": {
+                "type": "Http",
+                "runAfter": {}
+            },
+            "Parse_Employee": {
+                "type": "ParseJson",
+                "runAfter": {
+                    "GetEmployeeDetails": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "GetCompanyDetails": {
+                "type": "Http",
+                "runAfter": {
+                    "Employee_Data": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Parse_CompanyDetails": {
+                "type": "ParseJson",
+                "runAfter": {
+                    "GetCompanyDetails": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Company_Data": {
+                "type": "Compose",
+                "runAfter": {
+                    "Parse_CompanyDetails": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Employee_Data": {
+                "type": "Compose",
+                "runAfter": {
+                    "Get_ManagerId": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Get_ManagerId": {
+                "type": "Compose",
+                "runAfter": {
+                    "Parse_Employee": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "DeptName_Variable": {
+                "type": "InitializeVariable",
+                "runAfter": {
+                    "Company_Data": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Title_array_filtering": {
+                "type": "Query",
+                "runAfter": {
+                    "DeptName_Variable": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "TitleId": {
+                "type": "Compose",
+                "runAfter": {
+                    "Title_array_filtering": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Email_Body": {
+                "type": "Compose",
+                "runAfter": {
+                    "TitleId": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Response": {
+                "type": "Response",
+                "kind": "Http",
+                "runAfter": {
+                    "GetEmployeeDetails": [
+                        "Succeeded",
+                        "Failed",
+                        "Skipped",
+                        "TimedOut"
+                    ],
+                    "GetCompanyDetails": [
+                        "Succeeded",
+                        "Failed",
+                        "Skipped",
+                        "TimedOut"
+                    ],
+                    "EmailtoTekniska": [
+                        "Succeeded",
+                        "Failed",
+                        "TimedOut",
+                        "Skipped"
+                    ],
+                    "SynctoVisma_API": [
+                        "Succeeded",
+                        "Failed",
+                        "TimedOut",
+                        "Skipped"
+                    ]
+                }
+            },
+            "Payload_SynctoVisma": {
+                "type": "Compose",
+                "runAfter": {
+                    "EmailtoTekniska": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "SynctoVisma_API": {
+                "type": "Http",
+                "runAfter": {
+                    "Payload_SynctoVisma": [
+                        "Succeeded"
+                    ]
+                }
+            }
+        },
+        "outputs": {},
+        "parameters": {
+            "VismaToken": {
+                "defaultValue": "eyJhbGciOiJSUzI1NiIsImtpZCI6IkVFNzAyNkQ4Q0UzRDA0OUQyN0FBNDU2RERFNThEQUFFMDFCMzlFMjZSUzI1NiIsIng1dCI6IjduQW0yTTQ5QkowbnFrVnQzbGphcmdHem5pWSIsInR5cCI6ImF0K0pXVCJ9.eyJpc3MiOiJodHRwczovL2Nvbm5lY3QudmlzbWEuY29tIiwibmJmIjoxNzgzNjgxMzA1LCJpYXQiOjE3ODM2ODEzMDUsImV4cCI6MTc4MzY4NDkwNSwiYXVkIjoiaHR0cHM6Ly9hcGkuZmluYW5jZS52aXNtYS5uZXQvZXJwL2ludGVyYWN0aXZlIiwic2NvcGUiOlsidmlzbWFuZXRfZXJwX2ludGVyYWN0aXZlX2FwaTp1cGRhdGUiLCJ2aXNtYW5ldF9lcnBfaW50ZXJhY3RpdmVfYXBpOmRlbGV0ZSIsInZpc21hbmV0X2VycF9pbnRlcmFjdGl2ZV9hcGk6Y3JlYXRlIiwidmlzbWFuZXRfZXJwX2ludGVyYWN0aXZlX2FwaTpyZWFkIl0sImFtciI6WyJwd2QiXSwiY2xpZW50X2lkIjoidmlzbWFuZXRmaW5hbmNpYWxzX3N3YWdnZXJ1aSIsInRlbmFudF9pZCI6ImI5ZWQ2OGZmLTIxY2MtMTFlOS1iMzA3LTBhYTUxMjMzOGRkNiIsInRlbmFudF9leHRlcm5hbF9pZCI6IjE4MTUwMzgiLCJ0ZW5hbnRfb3duZXJfY2xpZW50X2lkIjoib2RwIiwic3ViIjoiNDY4YTllNDgtNTM1MC00MTZiLWJiZTMtMzNiNTFiMTAwMjJiIiwiYXV0aF90aW1lIjoxNzgzNjgxMjk4LCJpZHAiOiJWaXNtYSBDb25uZWN0IiwibGx0IjoxNzgyMTE2NjgxLCJjcmVhdGVkX2F0IjoxNzc3MzY4MzY3LCJhY3IiOiIyIiwic2lkIjoiNWI0ZWVmY2UtOGU2My00NDIxLTY4YjctNDdhMjE4YWU1OTc3In0.jigTGMhv9XXrWSP19JLG_wqZBuXSkumQdMVeNx-jx5LqVStSic_4IQgVJaBLj5D3QmR6Hsd8eXhWx4xuNPbG8JYhYSwdTSZYvhYtekQX4jjTJZbkJm1N8iQ8p9ylxEcUhNAJwUxiHbctb42MW6CHUPmJCJ-qQuxjueio2Rbzrp4YAdUGHTzHBAnrNMp__uk7-5nYO7TdIMzntYSNFcIlI8Jla96wwVoAoNj5xo8Sg2qADt2Kt2TeQTZuEwkM_yZ82s92yfVXdPx9mWCAPm8fM1RcRGsE0uphj3zjrbW1d31UiQ9M1A4LCeEn_SrogmXQ_qqUjqXOhjBtVxC6WtaSHg",
+                "type": "String"
+            },
+            "$connections": {
+                "type": "Object",
+                "defaultValue": {}
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "type": "Object",
+            "value": {
+                "office365": {
+                    "id": "/subscriptions/b68d87da-17a8-4c21-ac24-4e5475146dc8/providers/Microsoft.Web/locations/swedencentral/managedApis/office365",
+                    "connectionId": "/subscriptions/b68d87da-17a8-4c21-ac24-4e5475146dc8/resourceGroups/Acumantproject/providers/Microsoft.Web/connections/office365-1",
+                    "connectionName": "office365-1",
+                    "connectionProperties": {}
+                }
+            }
+        }
+    }
+}
