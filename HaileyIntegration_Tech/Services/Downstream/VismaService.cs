@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using HaileyIntegration.Tech.Models.Dto;
 using Microsoft.Extensions.Logging;
 
@@ -15,14 +16,16 @@ public sealed class VismaService(HttpClient http, VismaOptions options, ILogger<
             "Calling Visma PUT {Url} for dimensionId={DimensionId} segmentId={SegmentId}",
             url, request.DimensionId, request.SegementId);
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Put, url)
-        {
-            Content = JsonContent.Create(request, options: AppJsonOptions.Outbound),
-            Headers = { Authorization = new AuthenticationHeaderValue("Bearer", options.BearerToken) }
-        };
-
         try
         {
+            var accessToken = await GetAccessTokenAsync(ct);
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Put, url)
+            {
+                Content = JsonContent.Create(request, options: AppJsonOptions.Outbound),
+                Headers = { Authorization = new AuthenticationHeaderValue("Bearer", accessToken) }
+            };
+
             var response = await http.SendAsync(httpRequest, ct);
 
             if (response.IsSuccessStatusCode)
@@ -60,4 +63,38 @@ public sealed class VismaService(HttpClient http, VismaOptions options, ILogger<
             };
         }
     }
+
+    private async Task<string> GetAccessTokenAsync(CancellationToken ct)
+    {
+        using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, options.TokenUrl)
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "client_credentials",
+                ["client_id"] = options.ClientId,
+                ["client_secret"] = options.ClientSecret,
+                ["scope"] = options.Scope,
+                ["tenant_id"] = options.TenantId
+            }),
+            Headers = { Accept = { new MediaTypeWithQualityHeaderValue("application/json") } }
+        };
+
+        var response = await http.SendAsync(tokenRequest, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync(ct);
+            logger.LogWarning("Visma token request failed: {Status} {Error}", response.StatusCode, error);
+            throw new HttpRequestException($"Visma token request failed: {(int)response.StatusCode} {error}");
+        }
+
+        var token = await response.Content.ReadFromJsonAsync<VismaTokenResponse>(ct);
+
+        return string.IsNullOrWhiteSpace(token?.AccessToken)
+            ? throw new InvalidOperationException("Visma token response did not contain an access_token.")
+            : token.AccessToken;
+    }
+
+    private sealed record VismaTokenResponse(
+        [property: JsonPropertyName("access_token")] string? AccessToken);
 }

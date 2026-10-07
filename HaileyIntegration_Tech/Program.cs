@@ -45,7 +45,14 @@ builder.Services
     .Services
     .AddSingleton(_ =>
         new VismaOptions(
-            builder.Configuration["Visma:BearerToken"]
-            ?? throw new InvalidOperationException("Visma:BearerToken is required.")));
+            builder.Configuration["TokenUrl"] ?? "https://connect.visma.com/connect/token",
+            builder.Configuration["ClientId"]
+            ?? throw new InvalidOperationException("ClientId is required."),
+            builder.Configuration["ClientSecret"]
+            ?? throw new InvalidOperationException("ClientSecret is required."),
+            builder.Configuration["Scope"]
+            ?? throw new InvalidOperationException("Scope is required."),
+            builder.Configuration["TenantId"]
+            ?? throw new InvalidOperationException("TenantId is required.")));
 
 builder.Build().Run();
