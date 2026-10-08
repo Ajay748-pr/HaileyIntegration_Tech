@@ -144,7 +144,7 @@ public class Terms
     public decimal? ScopePercentage { get; set; }
 
     [JsonPropertyName("scopeHours")]
-    public decimal ScopeHours { get; set; }
+    public decimal? ScopeHours { get; set; }
 
     //    [JsonPropertyName("vacationDays")]
     //    public int? VacationDays { get; set; }

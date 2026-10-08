@@ -58,10 +58,10 @@ public class HaileyWebhook
         {
             var (caller, employeeData, employeeId, mangerId) = await _haileyClient.GetEmployeeAsync(requestPayload.EmployeeId);
             
-            if (caller == "newEmployee" || caller == "newSalary")
+            if (caller == "newInformation")
             {
                 var managerEmployeeNumber = await _haileyClient.GetMangerEmployeeNumberAsync(mangerId);
-                var message = "new employee request sent for " + employeeId;
+                var message = "new information request sent for " + employeeId;
                 _logger.LogInformation(message);
                 var companyData = await _haileyClient.GetCompanyAsync();
                 _integrationClient.SendUpdateEmployeeAsync(employeeData, companyData, managerEmployeeNumber);

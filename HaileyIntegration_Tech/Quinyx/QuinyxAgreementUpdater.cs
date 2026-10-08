@@ -3,7 +3,6 @@ using HaileyIntegration.Tech.Models.Dto;
 using HaileyIntegration.Tech.Services.Downstream;
 using Microsoft.Extensions.Logging;
 using ServiceReference1;
-using FuzzySharp;
 
 namespace HaileyIntegration.Tech.Quinyx;
 
@@ -16,50 +15,55 @@ public sealed class QuinyxAgreementUpdater(
         logger.LogInformation(
             "UpdateAgreement starting for EmploymentNumber={EmploymentNumber}",
             details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber);
-        if (string.IsNullOrEmpty(apiKey))
-        {
-            apiKey = MapApiKey(details, ct);
-        }
+       
         var quinyxTemplates = await quinyxService.GetAgreementTemplatesAsync(ct: ct);
-        var quinyxAgreement = MapToQuinyxAgreement(details, quinyxTemplates);
-        
-        var result = await quinyxService.UpdateAgreementAsync(quinyxAgreement, apiKey, ct);
+        var results = new List<SyncResult>();
+        foreach (var employment in details.HaileyEmployeeDetails.JobData?.Employment?.Employments ?? [])
+        {
+            var quinyxAgreement = MapToQuinyxAgreement(details, employment, quinyxTemplates);
 
-        logger.LogInformation(
-            "UpdateAgreement completed. Success={Success} EmployeeNumber={EmployeeNumber} Message={Message}",
-            result.Success, result.EmployeeNumber, result.Message);
+            var result = await quinyxService.UpdateAgreementAsync(quinyxAgreement, apiKey, ct);
 
-        return result;
+            logger.LogInformation(
+                "UpdateAgreement completed. Success={Success} EmployeeNumber={EmployeeNumber} Message={Message}",
+                result.Success, result.EmployeeNumber, result.Message);
+
+            results.Add(result);
+        }
+
+        return MergeResults(results, details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber);
     }
 
-
-    private string MapApiKey(HaileyDeatils details, CancellationToken ct)
+    private static SyncResult MergeResults(List<SyncResult> results, string? employmentNumber)
     {
-        var department = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == details.HaileyEmployeeDetails.JobData.Employment.Employments[0].OrganizationalInformation.DepartmentId);
-        var units = quinyxService.GetUnitsAPIKeyAsync(ct).Result;
-        if (!quinyxService.quinyxGroups.ToLower().Contains(department.Name.ToLower()))
+        if (results.Count == 0)
         {
-            return null;
+            return new SyncResult
+            {
+                Success = false,
+                EmployeeNumber = employmentNumber,
+                Message = "No employments found to update agreement."
+            };
         }
 
-        var matchedUnit = units.FirstOrDefault(u => Fuzz.Ratio(u.name, department.Name) >= 80);
-        if (matchedUnit is null)
+        var errorCodes = results.Select(r => r.ErrorCode).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
+        return new SyncResult
         {
-            var belongstoDepartment = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == department.BelongingToDepartmentId);
-            matchedUnit = units.FirstOrDefault(u => Fuzz.Ratio(u.name, belongstoDepartment.Name) >= 70);
-        }
-        return matchedUnit?.API_key ?? "";
-
+            Success = results.All(r => r.Success),
+            EmployeeNumber = results[0].EmployeeNumber ?? employmentNumber,
+            TargetSystem = results[0].TargetSystem,
+            Message = string.Join(" | ", results.Select(r => r.Message).Where(m => !string.IsNullOrEmpty(m))),
+            ErrorCode = errorCodes.Count > 0 ? string.Join(",", errorCodes) : null
+        };
     }
 
-    private UpdateAgreementV2 MapToQuinyxAgreement(HaileyDeatils details, IReadOnlyList<AgreementTemplate> templates)
+    private UpdateAgreementV2 MapToQuinyxAgreement(HaileyDeatils details,EmploymentItem employment, IReadOnlyList<AgreementTemplate> templates)
     {
         var dest = new UpdateAgreementV2
         {
             badgeNo = details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber,
         };
-        var employment = details.HaileyEmployeeDetails.JobData.Employment.Employments.Where(x => x.EndDate == null || x.EndDate > DateOnly.FromDateTime(DateTime.Today));
-       
+        
         var salary = details.HaileyEmployeeDetails.Salaries?.LastOrDefault();
         var isHourly = false;
         if (salary?.History?.Count > 0)
@@ -101,19 +105,9 @@ public sealed class QuinyxAgreementUpdater(
                 "No Quinyx agreement template matched for SalaryType={SalaryType}. extTemplateId/extAgreementId will not be set.",
                 salary?.SalaryType);
         }
-        var fromDate = DateTime.Now;
-        var scopeHour = 0m;
-        if(employment.Any(x=>x.EndDate is null))
-        { 
-            scopeHour = (decimal)employment.FirstOrDefault(x => x.EndDate is null).Terms.ScopePercentage;
-            fromDate = employment.FirstOrDefault(x => x.EndDate is null).StartDate.Value.ToDateTime(TimeOnly.MinValue);
-        }
-            
-        else if (employment.Where(x => x.EndDate.HasValue).Max(x => x.EndDate).HasValue)
-        {
-            scopeHour = (decimal)employment.Where(x => x.EndDate.HasValue).OrderByDescending(x => x.EndDate).FirstOrDefault()?.Terms.ScopePercentage;
-            fromDate = (DateTime)(employment.Where(x => x.EndDate.HasValue).OrderByDescending(x => x.EndDate).FirstOrDefault()?.StartDate.Value.ToDateTime(TimeOnly.MinValue));
-        }
+        var scopeHour = (decimal)employment.Terms.ScopePercentage;
+        var fromDate = employment.StartDate.Value.ToDateTime(TimeOnly.MinValue);
+        
      
         if (isHourly)
         {

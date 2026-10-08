@@ -104,27 +104,7 @@ public sealed class HaileyClient
             ) {
             return null;
         }
-           
-
-        if (haileyDeatils?.JobData?.Employment?.LastDayOfEmployment < DateOnly.FromDateTime(DateTime.Today))//employee left
-            return "inactiveEmployee";
-
-        if (haileyDeatils?.JobData?.Employment?.DateOfJoining >= DateOnly.FromDateTime(DateTime.Today))//New employee
-            return "newEmployee";
-
-        var latestSalaryDate = haileyDeatils.Salaries?.FirstOrDefault()?.History?
-            .Where(h => h.Date.HasValue)
-            .Max(h => h.Date);
-        if (latestSalaryDate >= DateOnly.FromDateTime(DateTime.Today))//New agreement
-            return "newSalary";
-
-        if ((bool)(haileyDeatils?.JobData?.Employment.Employments.Any(x => x.EndDate is null))||
-            (bool)(haileyDeatils?.JobData?.Employment.Employments.Where(x => x.EndDate.HasValue).Max(x => x.EndDate).HasValue))//New agreement
-            return "newSalary";
-
-
-
-        return null;
+        return "newInformation";
     }
 
     public async Task<string> GetCompanyAsync(CancellationToken cancellationToken = default)
