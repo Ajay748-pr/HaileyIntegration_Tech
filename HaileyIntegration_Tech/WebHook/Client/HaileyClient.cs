@@ -86,7 +86,7 @@ public sealed class HaileyClient
         {
             var haileyDeatils = await JsonSerializer.DeserializeAsync<HaileyEmployeeDetails>(await response.Content.ReadAsStreamAsync());
             var caller = callIntegration(haileyDeatils);
-            return (caller, responseBody, haileyDeatils?.EmployeeId, haileyDeatils?.JobData?.Employment?.Employments[0].OrganizationalInformation.ManagerEmployeeId);
+            return (caller, responseBody, haileyDeatils?.EmployeeId, haileyDeatils?.JobData?.Employment?.Employments?.FirstOrDefault()?.OrganizationalInformation?.ManagerEmployeeId);
         }
         catch (JsonException ex)
         {
@@ -96,11 +96,11 @@ public sealed class HaileyClient
 
     private string callIntegration(HaileyEmployeeDetails haileyDeatils)
     {
+        var orgInfo = haileyDeatils?.JobData?.Employment?.Employments?.FirstOrDefault()?.OrganizationalInformation;
         if (string.IsNullOrEmpty(haileyDeatils?.JobData?.General?.CompanyEmail)
             || string.IsNullOrEmpty(haileyDeatils.JobData.General.EmploymentNumber)
-            || haileyDeatils?.JobData?.Employment?.Employments is null
-            || string.IsNullOrEmpty(haileyDeatils?.JobData?.Employment?.Employments[0].OrganizationalInformation.ManagerEmployeeId)
-            || string.IsNullOrEmpty(haileyDeatils?.JobData?.Employment?.Employments[0].OrganizationalInformation.DepartmentId)
+            || string.IsNullOrEmpty(orgInfo?.ManagerEmployeeId)
+            || string.IsNullOrEmpty(orgInfo?.DepartmentId)
             ) {
             return null;
         }
@@ -112,8 +112,16 @@ public sealed class HaileyClient
         if (haileyDeatils?.JobData?.Employment?.DateOfJoining >= DateOnly.FromDateTime(DateTime.Today))//New employee
             return "newEmployee";
 
-        if (haileyDeatils?.Salaries.FirstOrDefault().History.Where(h => h.Date.HasValue).MaxBy(h => h.Date!.Value).Date >= DateOnly.FromDateTime(DateTime.Today))//New agreement
+        var latestSalaryDate = haileyDeatils.Salaries?.FirstOrDefault()?.History?
+            .Where(h => h.Date.HasValue)
+            .Max(h => h.Date);
+        if (latestSalaryDate >= DateOnly.FromDateTime(DateTime.Today))//New agreement
             return "newSalary";
+
+        if ((bool)(haileyDeatils?.JobData?.Employment.Employments.Any(x => x.EndDate is null))||
+            (bool)(haileyDeatils?.JobData?.Employment.Employments.Where(x => x.EndDate.HasValue).Max(x => x.EndDate).HasValue))//New agreement
+            return "newSalary";
+
 
 
         return null;

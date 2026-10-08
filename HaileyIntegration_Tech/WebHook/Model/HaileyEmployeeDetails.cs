@@ -89,20 +89,20 @@ namespace HaileyWebhook.Model
 
     public class EmploymentItem
     {
-        //    [JsonPropertyName("employmentId")]
-        //    public string EmploymentId { get; set; }
+        [JsonPropertyName("employmentId")]
+        public string EmploymentId { get; set; }
 
-        //    [JsonPropertyName("priority")]
-        //    public int? Priority { get; set; }
+        [JsonPropertyName("priority")]
+        public int? Priority { get; set; }
 
-        //    [JsonPropertyName("startDate")]
-        //    public DateOnly?StartDate { get; set; }
+        [JsonPropertyName("startDate")]
+        public DateOnly? StartDate { get; set; }
 
-        //    [JsonPropertyName("endDate")]
-        //    public DateOnly? EndDate { get; set; }
+        [JsonPropertyName("endDate")]
+        public DateOnly? EndDate { get; set; }
 
-        //    [JsonPropertyName("lastWorkingDay")]
-        //    public DateOnly? LastWorkingDay { get; set; }
+        [JsonPropertyName("lastWorkingDay")]
+        public DateOnly? LastWorkingDay { get; set; }
 
         [JsonPropertyName("organizationalInformation")]
         public OrganizationalInformation? OrganizationalInformation { get; set; }
@@ -116,8 +116,8 @@ namespace HaileyWebhook.Model
         //    [JsonPropertyName("employmentSequenceNumber")]
         //    public string? EmploymentSequenceNumber { get; set; }
 
-        //    [JsonPropertyName("status")]
-        //    public string? Status { get; set; }
+        [JsonPropertyName("status")]
+        public string? Status { get; set; }
     }
 
     //public class Terms

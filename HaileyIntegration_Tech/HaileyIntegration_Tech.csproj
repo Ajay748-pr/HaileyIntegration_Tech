@@ -9,6 +9,11 @@
     <RootNamespace>HaileyIntegration.Tech</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="WebHook\**" />
+    <EmbeddedResource Remove="WebHook\**" />
+    <None Remove="WebHook\**" />
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="local.settings.json" />
   </ItemGroup>
   <ItemGroup>
