@@ -1,4 +1,6 @@
+using Azure;
 using HaileyWebhook.Client;
+using HaileyWebhook.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -56,22 +58,38 @@ public class HaileyWebhook
 
         try
         {
-            var (caller, employeeData, employeeId, mangerId) = await _haileyClient.GetEmployeeAsync(requestPayload.EmployeeId);
+            var (caller, employeeData, employeeId, departmentId, mangerId) = await _haileyClient.GetEmployeeAsync(requestPayload.EmployeeId);
             
             if (caller == "newInformation")
             {
-                var managerEmployeeNumber = await _haileyClient.GetMangerEmployeeNumberAsync(mangerId);
+                mangerId = await GetManagerEmployeeNumberAsync(mangerId, employeeId);
+
                 var message = "new information request sent for " + employeeId;
                 _logger.LogInformation(message);
                 var companyData = await _haileyClient.GetCompanyAsync();
-                _integrationClient.SendUpdateEmployeeAsync(employeeData, companyData, managerEmployeeNumber);
-                _integrationClient.SendLogicAppRequest(employeeData);
+                await _integrationClient.SendUpdateEmployeeAsync(employeeData, companyData, mangerId);
                 return new OkObjectResult(new
                 {
                     message,
                 });
             }
-            if (caller == "inactiveEmployee")
+            else if (caller == "newEmployee")
+            {
+                mangerId = await GetManagerEmployeeNumberAsync(mangerId, employeeId);
+                var message = "new information request sent for " + employeeId;
+                _logger.LogInformation(message);
+                var companyData = await _haileyClient.GetCompanyAsync();
+                _integrationClient.SendUpdateEmployeeAsync(employeeData, companyData, mangerId);
+                var companyList = companyData is not null
+                    ? JsonSerializer.Deserialize<HaileyCompany>(companyData) : null;
+                var logicAppInput = employeeData.TrimStart(new[] { '{' });
+                _integrationClient.SendLogicAppRequest("{\"departmentName\":\"" + companyList.Departments.FirstOrDefault(x => x.Id == departmentId).Name + "\"," + logicAppInput);
+                return new OkObjectResult(new
+                {
+                    message,
+                });
+            }
+            else if (caller == "inactiveEmployee")
             {
                 var message = "inactive user.";
                 _logger.LogInformation(message);
@@ -96,6 +114,26 @@ public class HaileyWebhook
         {
             _logger.LogError(ex, "External API call failed.");
             return new ObjectResult("External API call failed.") { StatusCode = StatusCodes.Status502BadGateway };
+        }
+    }
+
+    // The manager is optional: a missing or unresolvable manager must not stop the employee sync.
+    private async Task<string?> GetManagerEmployeeNumberAsync(string? managerId, string? employeeId)
+    {
+        if (string.IsNullOrEmpty(managerId))
+        {
+            _logger.LogWarning("Employee {EmployeeId} has no manager. Syncing without manager.", employeeId);
+            return null;
+        }
+
+        try
+        {
+            return await _haileyClient.GetMangerEmployeeNumberAsync(managerId);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "Could not resolve manager {ManagerId} for employee {EmployeeId}. Syncing without manager.", managerId, employeeId);
+            return null;
         }
     }
 }

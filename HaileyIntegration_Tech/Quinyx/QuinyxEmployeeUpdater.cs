@@ -14,20 +14,20 @@ public sealed partial class QuinyxEmployeeUpdater(
 {
     [GeneratedRegex(@"[^0-9A-Za-z]")]
     private partial Regex NonAlphanumericRegex();
-    private string Unit;
     public async Task<SyncResult> ExecuteAsync(HaileyDeatils details, CancellationToken ct = default)
     {
-        if (string.IsNullOrEmpty(details.HaileyEmployeeDetails.JobData.General.EmploymentNumber)
-            || string.IsNullOrEmpty(details.HaileyEmployeeDetails.JobData.General.CompanyEmail)
-            || string.IsNullOrEmpty(details.HaileyManagerEmployeeNumber)
-            || string.IsNullOrEmpty(details.HaileyEmployeeDetails.JobData.Employment.Employments[0].OrganizationalInformation.DepartmentId)
-            || details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining == null)
+        var employmentNumber = details.HaileyEmployeeDetails?.JobData?.General?.EmploymentNumber;
+        if (string.IsNullOrEmpty(employmentNumber)
+            || string.IsNullOrEmpty(details.HaileyEmployeeDetails!.JobData!.General!.CompanyEmail)
+           // || string.IsNullOrEmpty(details.HaileyManagerEmployeeNumber)
+            || string.IsNullOrEmpty(details.HaileyEmployeeDetails.OrganizationalBelonging?.DepartmentId)
+            || details.HaileyEmployeeDetails.JobData.Employment?.DateOfJoining == null)
         {
             logger.LogError("Required fields are missing.");
             return new SyncResult
             {
                 Success = false,
-                EmployeeNumber = details.HaileyEmployeeDetails.JobData.General.EmploymentNumber,
+                EmployeeNumber = employmentNumber,
                 TargetSystem = "Quinyx",
                 ErrorCode = "404",
                 Message = "required fields are missing"
@@ -35,27 +35,26 @@ public sealed partial class QuinyxEmployeeUpdater(
         }
 
         logger.LogInformation(
-            "UpdateEmployee starting for EmploymentNumber={EmploymentNumber}", details.HaileyEmployeeDetails.JobData.General.EmploymentNumber);
+            "UpdateEmployee starting for EmploymentNumber={EmploymentNumber}", employmentNumber);
 
-        var apiKey = MapApiKey(details, ct);
+        var (apiKey, unit) = await MapApiKeyAsync(details, ct);
         if (string.IsNullOrEmpty(apiKey))
         {
             return new SyncResult
             {
                 Success = false,
-                EmployeeNumber = details.HaileyEmployeeDetails.JobData.General.EmploymentNumber,
+                EmployeeNumber = employmentNumber,
                 TargetSystem = "Quinyx",
                 ErrorCode = "404",
                 Message = "No matching unit found"
             };
         }
         var categories = await quinyxService.GetCategoriesAsync(ct: ct);
-        var section = await quinyxService.GetSectionsAsync(ct: ct);
         var staffCategory = categories.FirstOrDefault(c => c.categoryName == "Beh. app Medarbetare");
         if (staffCategory is null)
             logger.LogWarning("No Quinyx category matched 'Beh. app Medarbetare'.");
 
-        var quinyxEmployee = MapToQuinyxEmployee(details);
+        var quinyxEmployee = MapToQuinyxEmployee(details, unit);
         
         if (staffCategory is not null)
         {
@@ -73,51 +72,70 @@ public sealed partial class QuinyxEmployeeUpdater(
         return result;
     }
 
-    private string MapApiKey(HaileyDeatils details, CancellationToken ct)
+    // Returns the Quinyx unit API key for the employee's department, plus the department name
+    // to use as extSectionId when the match was made on the parent department.
+    private async Task<(string? ApiKey, string? Unit)> MapApiKeyAsync(HaileyDeatils details, CancellationToken ct)
     {
-        var department = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == details.HaileyEmployeeDetails.JobData.Employment.Employments[0].OrganizationalInformation.DepartmentId);
-        var units = quinyxService.GetUnitsAPIKeyAsync(ct).Result;
-        if (!quinyxService.quinyxGroups.ToLower().Contains(department.Name.ToLower()))
+        var departments = details.HaileyCompany?.Departments ?? [];
+        var departmentId = details.HaileyEmployeeDetails.OrganizationalBelonging?.DepartmentId;
+        var department = departments.FirstOrDefault(x => x.Id == departmentId);
+        if (string.IsNullOrEmpty(department?.Name))
         {
-            return null;
+            logger.LogWarning("Department {DepartmentId} not found in haileyCompany.departments.", departmentId);
+            return (null, null);
         }
-        
-        var matchedUnit = units.FirstOrDefault(u => Fuzz.Ratio(u.name, department.Name) >= 80);
-        if (matchedUnit is null)
-        {
-            Unit = department.Name;
-            var belongstoDepartment = details.HaileyCompany.Departments.FirstOrDefault(x => x.Id == department.BelongingToDepartmentId);
-            matchedUnit = units.FirstOrDefault(u => Fuzz.Ratio(u.name, belongstoDepartment.Name) >= 70);
-        }
-        return matchedUnit?.API_key ?? "";
 
+        if (quinyxService.quinyxGroups?.Contains(department.Name, StringComparison.OrdinalIgnoreCase) != true)
+        {
+            return (null, null);
+        }
+
+        var units = await quinyxService.GetUnitsAPIKeyAsync(ct);
+        var matchedUnit = units.FirstOrDefault(u => Fuzz.Ratio(u.name, department.Name) >= 80);
+        if (matchedUnit is not null)
+        {
+            return (matchedUnit.API_key, null);
+        }
+
+        var parentDepartment = departments.FirstOrDefault(x => x.Id == department.BelongingToDepartmentId);
+        if (string.IsNullOrEmpty(parentDepartment?.Name))
+        {
+            return (null, null);
+        }
+
+        matchedUnit = units.FirstOrDefault(u => Fuzz.Ratio(u.name, parentDepartment.Name) >= 70);
+        return (matchedUnit?.API_key, department.Name);
     }
 
-    private UpdateEmployee MapToQuinyxEmployee(HaileyDeatils src)
+    private UpdateEmployee MapToQuinyxEmployee(HaileyDeatils src, string? unit)
     {
+        var employee = src.HaileyEmployeeDetails;
+        var sensitive = employee.Personal?.Sensitive;
+        var contact = employee.Personal?.ContactInformation;
         var dest = new UpdateEmployee
         {
-            badgeNo = src.HaileyEmployeeDetails.JobData.General.EmploymentNumber,
-            givenName = src.HaileyEmployeeDetails.Personal.General.FirstName,
-            familyName = src.HaileyEmployeeDetails.Personal.General.LastName,
-            email = src.HaileyEmployeeDetails.JobData.General.CompanyEmail,
-           
-            socsecNo = src.HaileyEmployeeDetails.Personal.Sensitive.PersonalIdentityNumber is { } pin
+            badgeNo = employee.JobData.General.EmploymentNumber,
+            givenName = employee.Personal?.General?.FirstName,
+            familyName = employee.Personal?.General?.LastName,
+            email = employee.JobData.General.CompanyEmail,
+
+            socsecNo = sensitive?.PersonalIdentityNumber is { } pin
                 ? NonAlphanumericRegex().Replace(pin, "")
                 : null,
-            address1 = src.HaileyEmployeeDetails.Personal.ContactInformation.StreetAddress,
-            zip = src.HaileyEmployeeDetails.Personal.ContactInformation.PostalCode,
-            city = src.HaileyEmployeeDetails.Personal.ContactInformation.City,
-            country = src.HaileyEmployeeDetails.Personal.ContactInformation.Country,
-            reportingTo = src.HaileyManagerEmployeeNumber,
+            address1 = contact?.StreetAddress,
+            zip = contact?.PostalCode,
+            city = contact?.City,
+            country = contact?.Country,
+            // Manager is optional; leave reportingTo unset when Hailey has no manager.
+            reportingTo = string.IsNullOrWhiteSpace(src.HaileyManagerEmployeeNumber) ? null : src.HaileyManagerEmployeeNumber,
             active = 1,
             activeSpecified = true,
-            extSectionId= Unit,
+            extSectionId = unit,
         };
 
-        if (!string.IsNullOrWhiteSpace(src.HaileyEmployeeDetails.Personal.Sensitive.Gender))
+        if (!string.IsNullOrWhiteSpace(sensitive?.Gender))
         {
-            dest.sex = src.HaileyEmployeeDetails.Personal.Sensitive.Gender?.Trim().ToLower() switch
+            dest.sex = sensitive.Gender.Trim().ToLower() switch
             {
                 "male" => 0,
                 "female" => 1,
@@ -126,20 +144,20 @@ public sealed partial class QuinyxEmployeeUpdater(
             dest.sexSpecified = true;
         }
 
-        if (src.HaileyEmployeeDetails.Personal.Sensitive.DateOfBirth.HasValue)
+        if (sensitive?.DateOfBirth.HasValue == true)
         {
-            dest.dateOfBirth = src.HaileyEmployeeDetails.Personal.Sensitive.DateOfBirth.Value.ToDateTime(TimeOnly.MinValue); ;
+            dest.dateOfBirth = sensitive.DateOfBirth.Value.ToDateTime(TimeOnly.MinValue);
             dest.dateOfBirthSpecified = true;
         }
 
-        if (src.HaileyEmployeeDetails.JobData.Employment.DateOfJoining.HasValue)
+        if (employee.JobData.Employment?.DateOfJoining.HasValue == true)
         {
-            dest.employedDate = src.HaileyEmployeeDetails.JobData.Employment.DateOfJoining.Value.ToDateTime(TimeOnly.MinValue);
+            dest.employedDate = employee.JobData.Employment.DateOfJoining.Value.ToDateTime(TimeOnly.MinValue);
             dest.employedDateSpecified = true;
         }
-        if (src.HaileyEmployeeDetails.JobData.Employment.LastDayOfEmployment.HasValue)
+        if (employee.JobData.Employment?.LastDayOfEmployment.HasValue == true)
         {
-            dest.leaveDate = src.HaileyEmployeeDetails.JobData.Employment.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
+            dest.leaveDate = employee.JobData.Employment.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
             dest.leaveDateSpecified = true;
         }
         return dest;

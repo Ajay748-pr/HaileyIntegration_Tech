@@ -21,7 +21,7 @@ public sealed class HaileyClient
         _configuration = configuration;
     }
 
-    public async Task<string> GetMangerEmployeeNumberAsync(string employeeId, CancellationToken cancellationToken = default)
+    public async Task<string?> GetMangerEmployeeNumberAsync(string employeeId, CancellationToken cancellationToken = default)
     {
         var employeeApiUrl = _configuration["HaileyEmployeeApiUrl"] ?? _configuration["EmployeeApiUrl"];
         if (string.IsNullOrWhiteSpace(employeeApiUrl))
@@ -50,14 +50,14 @@ public sealed class HaileyClient
         {
             var haileyDeatils = await JsonSerializer.DeserializeAsync<HaileyEmployeeDetails>(await response.Content.ReadAsStreamAsync());
             
-            return (haileyDeatils.JobData.General.EmploymentNumber);
+            return haileyDeatils?.JobData?.General?.EmploymentNumber;
         }
         catch (JsonException ex)
         {
             throw new InvalidOperationException("Unable to parse employee response payload.", ex);
         }
     }
-    public async Task<(string, string,string,string)> GetEmployeeAsync(string employeeId, CancellationToken cancellationToken = default)
+    public async Task<(string, string,string,string,string)> GetEmployeeAsync(string employeeId, CancellationToken cancellationToken = default)
     {
         var employeeApiUrl = _configuration["HaileyEmployeeApiUrl"] ?? _configuration["EmployeeApiUrl"];
         if (string.IsNullOrWhiteSpace(employeeApiUrl))
@@ -86,7 +86,7 @@ public sealed class HaileyClient
         {
             var haileyDeatils = await JsonSerializer.DeserializeAsync<HaileyEmployeeDetails>(await response.Content.ReadAsStreamAsync());
             var caller = callIntegration(haileyDeatils);
-            return (caller, responseBody, haileyDeatils?.EmployeeId, haileyDeatils?.JobData?.Employment?.Employments?.FirstOrDefault()?.OrganizationalInformation?.ManagerEmployeeId);
+            return (caller, responseBody, haileyDeatils?.EmployeeId, haileyDeatils.OrganizationalBelonging.DepartmentId, haileyDeatils?.JobData?.Employment?.Employments?.FirstOrDefault()?.OrganizationalInformation?.ManagerEmployeeId);
         }
         catch (JsonException ex)
         {
@@ -97,13 +97,18 @@ public sealed class HaileyClient
     private string callIntegration(HaileyEmployeeDetails haileyDeatils)
     {
         var orgInfo = haileyDeatils?.JobData?.Employment?.Employments?.FirstOrDefault()?.OrganizationalInformation;
-        if (string.IsNullOrEmpty(haileyDeatils?.JobData?.General?.CompanyEmail)
+
+        if (haileyDeatils?.JobData is null
+            || haileyDeatils?.JobData?.General is null
+            || string.IsNullOrEmpty(haileyDeatils?.JobData?.General?.CompanyEmail)
             || string.IsNullOrEmpty(haileyDeatils.JobData.General.EmploymentNumber)
-            || string.IsNullOrEmpty(orgInfo?.ManagerEmployeeId)
             || string.IsNullOrEmpty(orgInfo?.DepartmentId)
             ) {
             return null;
         }
+        if (haileyDeatils?.JobData?.Employment?.DateOfJoining >= DateOnly.FromDateTime(DateTime.Today))//New employee
+            return "newEmployee";
+
         return "newInformation";
     }
 

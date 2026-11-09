@@ -38,11 +38,16 @@ namespace HaileyWebhook.Model
         [JsonPropertyName("salaries")]
         public List<Salary>? Salaries { get; set; }
 
-        //[JsonPropertyName("organizationalBelonging")]
-        //public OrganizationalBelonging? OrganizationalBelonging { get; set; }
+        [JsonPropertyName("organizationalBelonging")]
+        public OrganizationalBelonging? OrganizationalBelonging { get; set; }
 
         //[JsonPropertyName("customFieldsData")]
         //public Dictionary<string, object>? CustomFieldsData { get; set; }
+    }
+    public class OrganizationalBelonging
+    {
+        [JsonPropertyName("departmentId")]
+        public string DepartmentId { get; set; }
     }
 
     public class JobData
@@ -78,6 +83,7 @@ namespace HaileyWebhook.Model
         public DateOnly? DateOfJoining { get; set; }
 
         [JsonPropertyName("lastDayOfEmployment")]
+        [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
         public DateOnly? LastDayOfEmployment { get; set; }
 
         [JsonPropertyName("employments")]
@@ -99,9 +105,11 @@ namespace HaileyWebhook.Model
         public DateOnly? StartDate { get; set; }
 
         [JsonPropertyName("endDate")]
+        [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
         public DateOnly? EndDate { get; set; }
 
         [JsonPropertyName("lastWorkingDay")]
+        [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
         public DateOnly? LastWorkingDay { get; set; }
 
         [JsonPropertyName("organizationalInformation")]
@@ -292,6 +300,49 @@ namespace HaileyWebhook.Model
     //    [JsonPropertyName("swift")]
     //    public string? Swift { get; set; }
     //}
+    public sealed class HaileyCompany
+    {
+        [JsonPropertyName("departments")]
+        public List<HaileyDepartment> Departments { get; set; }
+
+        //[JsonPropertyName("costCenters")]
+        //public List<HaileyCostCenter> CostCenters { get; set; }
+
+        //[JsonPropertyName("locations")]
+        //public List<HaileyNamedItem> Locations { get; set; }
+
+        //[JsonPropertyName("legalEntities")]
+        //public List<HaileyNamedItem> LegalEntities { get; set; }
+
+        //[JsonPropertyName("titles")]
+        //public List<HaileyNamedItem> Titles { get; set; }
+
+        //[JsonPropertyName("businessAreas")]
+        //public List<HaileyNamedItem> BusinessAreas { get; set; }
+
+        //[JsonPropertyName("teams")]
+        //public List<HaileyNamedItem> Teams { get; set; }
+
+        //[JsonPropertyName("customFields")]
+        //public List<HaileyCustomField> CustomFields { get; set; }
+
+        //[JsonPropertyName("customEmploymentFields")]
+        //public List<HaileyCustomField> CustomEmploymentFields { get; set; }
+    }
+    public sealed class HaileyDepartment
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        //[JsonPropertyName("headOfDepartmentEmployeeId")]
+        //public string? HeadOfDepartmentEmployeeId { get; set; }
+
+        [JsonPropertyName("belongingToDepartmentId")]
+        public string? BelongingToDepartmentId { get; set; }
+    }
 
     public class OrganizationalInformation
     {

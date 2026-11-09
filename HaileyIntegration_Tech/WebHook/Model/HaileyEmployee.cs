@@ -48,6 +48,7 @@ namespace HaileyWebhook.Model
         //    public DateOnly? DateOfJoining { get; set; }
 
         [JsonPropertyName("lastDayOfEmployment")]
+        [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
         public DateOnly? LastDayOfEmployment { get; set; }
 
         ////[JsonPropertyName("lastWorkingDay")]

@@ -2,8 +2,8 @@ using System.Text.Json.Serialization;
 namespace HaileyIntegration.Tech.Models;
 public class HaileyEmployeeDetails
 {
-    //[JsonPropertyName("employeeId")]
-    //public string EmployeeId { get; set; }
+    [JsonPropertyName("employeeId")]
+    public string? EmployeeId { get; set; }
 
     //[JsonPropertyName("accountStatus")]
     //public string? AccountStatus { get; set; }
@@ -35,11 +35,17 @@ public class HaileyEmployeeDetails
     [JsonPropertyName("salaries")]
     public List<Salary>? Salaries { get; set; }
 
-    //[JsonPropertyName("organizationalBelonging")]
-    //public OrganizationalBelonging? OrganizationalBelonging { get; set; }
+    [JsonPropertyName("organizationalBelonging")]
+    public OrganizationalBelonging? OrganizationalBelonging { get; set; }
 
     //[JsonPropertyName("customFieldsData")]
     //public Dictionary<string, object>? CustomFieldsData { get; set; }
+}
+
+public class OrganizationalBelonging
+{
+    [JsonPropertyName("departmentId")]
+    public string DepartmentId { get; set; }
 }
 
 public class JobData
@@ -75,6 +81,7 @@ public class Employment
     public DateOnly?DateOfJoining { get; set; }
 
     [JsonPropertyName("lastDayOfEmployment")]
+    [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
     public DateOnly?LastDayOfEmployment { get; set; }
 
     [JsonPropertyName("employments")]
@@ -96,9 +103,11 @@ public class Employment
     public DateOnly? StartDate { get; set; }
 
     [JsonPropertyName("endDate")]
+    [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
     public DateOnly? EndDate { get; set; }
 
     [JsonPropertyName("lastWorkingDay")]
+    [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
     public DateOnly? LastWorkingDay { get; set; }
 
     [JsonPropertyName("organizationalInformation")]

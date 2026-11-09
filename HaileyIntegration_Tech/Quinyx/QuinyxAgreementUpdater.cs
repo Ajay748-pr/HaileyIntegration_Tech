@@ -3,6 +3,7 @@ using HaileyIntegration.Tech.Models.Dto;
 using HaileyIntegration.Tech.Services.Downstream;
 using Microsoft.Extensions.Logging;
 using ServiceReference1;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace HaileyIntegration.Tech.Quinyx;
 
@@ -20,6 +21,8 @@ public sealed class QuinyxAgreementUpdater(
         var results = new List<SyncResult>();
         foreach (var employment in details.HaileyEmployeeDetails.JobData?.Employment?.Employments ?? [])
         {
+            if (employment is null) continue;
+
             var quinyxAgreement = MapToQuinyxAgreement(details, employment, quinyxTemplates);
 
             var result = await quinyxService.UpdateAgreementAsync(quinyxAgreement, apiKey, ct);
@@ -64,34 +67,45 @@ public sealed class QuinyxAgreementUpdater(
             badgeNo = details.HaileyEmployeeDetails.JobData?.General?.EmploymentNumber,
         };
         
-        var salary = details.HaileyEmployeeDetails.Salaries?.LastOrDefault();
-        var isHourly = false;
-        if (salary?.History?.Count > 0)
-        {
-            isHourly = salary.SalaryType?.Trim().ToLower() == "hourly";
-
-            var latestHistory = salary.History
+        // Pick the salary whose history holds the most recent dated entry across all salaries.
+        var latest = (details.HaileyEmployeeDetails.Salaries ?? [])
+            .SelectMany(s => (s.History ?? [])
                 .Where(h => h.Date.HasValue)
-                .MaxBy(h => h.Date!.Value);
+                .Select(h => new { Salary = s, History = h }))
+            .MaxBy(x => x.History.Date!.Value);
 
-            if (latestHistory is not null)
+        var salary = latest?.Salary ?? details.HaileyEmployeeDetails.Salaries?.LastOrDefault();
+        var latestHistory = latest?.History;
+        var isHourly = salary?.SalaryType?.Trim().ToLower() == "hourly";
+
+        // Hourly-paid employees always have a 0% scope of employment rate.
+        var scopeHour = isHourly ? 0 : employment.Terms?.ScopePercentage ?? 0;
+
+        if (latestHistory is not null)
+        {
+            var agreementSalary = new AgreementSalary
             {
-                var agreementSalary = new AgreementSalary
-                {
-                    fromDate = latestHistory.Date!.Value.ToDateTime(TimeOnly.MinValue),
-                    fromDateSpecified = true,
-                };
-                if (isHourly) { agreementSalary.hourlySalary = latestHistory.Amount; agreementSalary.hourlySalarySpecified = true; }
-                else { agreementSalary.monthlySalary = latestHistory.Amount; agreementSalary.monthlySalarySpecified = true; }
-                dest.salariesAdd = [agreementSalary];
+                fromDate = latestHistory.Date!.Value.ToDateTime(TimeOnly.MinValue),
+                fromDateSpecified = true,
+               
+            };
+            if (isHourly) { agreementSalary.hourlySalary = latestHistory.Amount; agreementSalary.hourlySalarySpecified = true; }
+            else { agreementSalary.monthlySalary = latestHistory.Amount; agreementSalary.monthlySalarySpecified = true; }
+            if (scopeHour!=1)
+            {
                 dest.expires = true;
                 dest.expiresSpecified = true;
-                
             }
+            agreementSalary.monthlyHoursDivisor = 165;
+            agreementSalary.monthlyHoursDivisorSpecified = true;
+            dest.salariesAdd = [agreementSalary];
+           
         }
         dest.useTempSalary = false;
 
-        var matchedTemplate = ResolveTemplate(salary?.SalaryType, templates);
+        
+
+        var matchedTemplate = ResolveTemplate(isHourly, scopeHour, templates);
 
         if (matchedTemplate is not null)
         {
@@ -102,56 +116,76 @@ public sealed class QuinyxAgreementUpdater(
         else
         {
             logger.LogWarning(
-                "No Quinyx agreement template matched for SalaryType={SalaryType}. extTemplateId/extAgreementId will not be set.",
-                salary?.SalaryType);
+                "No Quinyx agreement template matched for SalaryType={SalaryType} ScopePercentage={ScopePercentage}. templateId will not be set.",
+                salary?.SalaryType, scopeHour);
         }
-        var scopeHour = (decimal)employment.Terms.ScopePercentage;
-        var fromDate = employment.StartDate.Value.ToDateTime(TimeOnly.MinValue);
-        
-     
-        if (isHourly)
+        dest.hourly = isHourly;
+        dest.hourlySpecified = true;
+
+        if (scopeHour != 0)
         {
-            dest.hourly = true;
             dest.fullEmploymentHrs = scopeHour;
             dest.fullEmploymentHrsSpecified = true;
-            dest.hourlySpecified = true;
-            dest.employmentRatesAdd = [new EmploymentRate { fromDate = fromDate, rate = scopeHour *100 }];
+
+            if (employment.StartDate.HasValue)
+            {
+                var fromDate = employment.StartDate.Value.ToDateTime(TimeOnly.MinValue);
+                dest.employmentRatesAdd = [new EmploymentRate { fromDate = fromDate, rate = scopeHour * 100 }];
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Employment {EmploymentId} has no startDate. Employment rate will not be set.",
+                    employment.EmploymentId);
+            }
+            if (scopeHour == 1)
+            {
+                dest.expires = false;
+                dest.expiresSpecified = true;
+            }
+            else
+            {
+                //var lastWorkingDay = employment.LastWorkingDay;
+                var endDate = employment.EndDate;
+                //var toDate = lastWorkingDay.HasValue && (!endDate.HasValue || lastWorkingDay.Value < endDate.Value)
+                //    ? lastWorkingDay
+                //    : endDate;
+
+                if (endDate.HasValue)
+                {
+                    dest.toDate = endDate.Value.ToDateTime(TimeOnly.MinValue);
+                    dest.toDateSpecified = true;
+                    dest.expires = false;
+                    dest.expiresSpecified = true;
+                }
+            }
         }
-        else
-        {
-            dest.hourly = false;
-            dest.hourlySpecified = true;
-            dest.fullEmploymentHrs = scopeHour;
-            dest.fullEmploymentHrsSpecified = true;
-            dest.employmentRatesAdd = [new EmploymentRate { fromDate = fromDate, rate = scopeHour*100 }];
-        }
+       
         if (details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining.HasValue == true)
         {
             dest.fromDate = details.HaileyEmployeeDetails.JobData.Employment.DateOfJoining.Value.ToDateTime(TimeOnly.MinValue);
             dest.fromDateSpecified = true;
         }
 
-        if (details.HaileyEmployeeDetails.JobData?.Employment?.LastDayOfEmployment.HasValue == true)
-        {
-            dest.toDate = details.HaileyEmployeeDetails.JobData.Employment.LastDayOfEmployment.Value.ToDateTime(TimeOnly.MinValue);
-            dest.toDateSpecified = true;
-            dest.expires = true;
-            dest.expiresSpecified = true;
-        }
-
         return dest;
     }
 
-    private AgreementTemplate? ResolveTemplate(
-        string? salaryType,
+    // scopePercentage is a fraction from Hailey (1 = 100%, 0.45 = 45%).
+    // Hourly (Timlön)                → "Lokalt kollektivavtal månad tim"
+    // Monthly (Månadslön) 0 < x < 1  → "Lokalt kollektivavtal månad deltid"--- Part-Time
+    // Monthly (Månadslön) x >= 1     → "Lokalt kollektivavtal månad heltid" ---- Full- Time
+    private static AgreementTemplate? ResolveTemplate(
+        bool isHourly,
+        decimal scopePercentage,
         IReadOnlyList<AgreementTemplate> templates)
     {
-        return salaryType?.Trim().ToLower() switch
-        {
-            "hourly" => templates.FirstOrDefault(t =>t.templateName?.Contains("tim", StringComparison.OrdinalIgnoreCase) == true),
-            "full-time" => templates.FirstOrDefault(t => t.templateName?.Contains("heltid", StringComparison.OrdinalIgnoreCase) == true),
-            "monthly"   => templates.FirstOrDefault(t =>t.templateName?.Contains("deltid", StringComparison.OrdinalIgnoreCase) == true),
-            _           => null
-        };
+        var suffix = isHourly ? "tim"
+            : scopePercentage >= 1 ? "heltid"
+            : scopePercentage > 0 ? "deltid"
+            : null;
+
+        return suffix is null
+            ? null
+            : templates.FirstOrDefault(t => t.templateName?.Trim().EndsWith(suffix, StringComparison.OrdinalIgnoreCase) == true);
     }
 }
