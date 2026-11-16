@@ -128,114 +128,114 @@ namespace HaileyWebhook.Model
         public string? Status { get; set; }
     }
 
-    //public class Terms
-    //{
-    //    [JsonPropertyName("employmentType")]
-    //    public string? EmploymentType { get; set; }
+    public class Terms
+    {
+        [JsonPropertyName("employmentType")]
+        public string? EmploymentType { get; set; }
 
-    //    [JsonPropertyName("noticePeriodMonths")]
-    //    public int? NoticePeriodMonths { get; set; }
+        //    [JsonPropertyName("noticePeriodMonths")]
+        //    public int? NoticePeriodMonths { get; set; }
 
-    //    [JsonPropertyName("noticePeriod")]
-    //    public int? NoticePeriod { get; set; }
+        //    [JsonPropertyName("noticePeriod")]
+        //    public int? NoticePeriod { get; set; }
 
-    //    [JsonPropertyName("noticePeriodUnit")]
-    //    public string? NoticePeriodUnit { get; set; }
+        //    [JsonPropertyName("noticePeriodUnit")]
+        //    public string? NoticePeriodUnit { get; set; }
 
-    //    [JsonPropertyName("endOfProbationaryPeriod")]
-    //    public DateOnly? EndOfProbationaryPeriod { get; set; }
+        [JsonPropertyName("endOfProbationaryPeriod")]
+        public DateOnly? EndOfProbationaryPeriod { get; set; }
 
-    //    [JsonPropertyName("fixedTermType")]
-    //    public string? FixedTermType { get; set; }
+        [JsonPropertyName("fixedTermType")]
+        public string? FixedTermType { get; set; }
 
-    //    [JsonPropertyName("endOfFixedTerm")]
-    //    public DateOnly? EndOfFixedTerm { get; set; }
+        [JsonPropertyName("endOfFixedTerm")]
+        public DateOnly? EndOfFixedTerm { get; set; }
 
-    //    [JsonPropertyName("scopePercentage")]
-    //    public decimal? ScopePercentage { get; set; }
+        [JsonPropertyName("scopePercentage")]
+        public decimal? ScopePercentage { get; set; }
 
-    //    [JsonPropertyName("scopeHours")]
-    //    public decimal ScopeHours { get; set; }
+        [JsonPropertyName("scopeHours")]
+        public decimal ScopeHours { get; set; }
 
-    //    [JsonPropertyName("vacationDays")]
-    //    public int? VacationDays { get; set; }
+        //    [JsonPropertyName("vacationDays")]
+        //    public int? VacationDays { get; set; }
 
-    //    [JsonPropertyName("substitutingForEmployeeId")]
-    //    public string? SubstitutingForEmployeeId { get; set; }
+        //    [JsonPropertyName("substitutingForEmployeeId")]
+        //    public string? SubstitutingForEmployeeId { get; set; }
 
-    //    [JsonPropertyName("substituteReasonId")]
-    //    public string? SubstituteReasonId { get; set; }
-    //}
+        //    [JsonPropertyName("substituteReasonId")]
+        //    public string? SubstituteReasonId { get; set; }
+    }
 
-    //public class Personal
-    //{
-    //    [JsonPropertyName("general")]
-    //    public PersonalGeneral? General { get; set; }
+        //public class Personal
+        //{
+        //    [JsonPropertyName("general")]
+        //    public PersonalGeneral? General { get; set; }
 
-    //    [JsonPropertyName("sensitive")]
-    //    public Sensitive? Sensitive { get; set; }
+        //    [JsonPropertyName("sensitive")]
+        //    public Sensitive? Sensitive { get; set; }
 
-    //    [JsonPropertyName("contactInformation")]
-    //    public ContactInformation? ContactInformation { get; set; }
+        //    [JsonPropertyName("contactInformation")]
+        //    public ContactInformation? ContactInformation { get; set; }
 
-    //    [JsonPropertyName("ice")]
-    //    public Ice? Ice { get; set; }
-    //}
+        //    [JsonPropertyName("ice")]
+        //    public Ice? Ice { get; set; }
+        //}
 
-    //public class PersonalGeneral
-    //{
-    //    [JsonPropertyName("firstName")]
-    //    public string? FirstName { get; set; }
+        //public class PersonalGeneral
+        //{
+        //    [JsonPropertyName("firstName")]
+        //    public string? FirstName { get; set; }
 
-    //    [JsonPropertyName("lastName")]
-    //    public string? LastName { get; set; }
-    //}
+        //    [JsonPropertyName("lastName")]
+        //    public string? LastName { get; set; }
+        //}
 
-    //public class Sensitive
-    //{
-    //    [JsonPropertyName("gender")]
-    //    public string? Gender { get; set; }
+        //public class Sensitive
+        //{
+        //    [JsonPropertyName("gender")]
+        //    public string? Gender { get; set; }
 
-    //    [JsonPropertyName("dateOfBirth")]
-    //    public DateOnly? DateOfBirth { get; set; }
+        //    [JsonPropertyName("dateOfBirth")]
+        //    public DateOnly? DateOfBirth { get; set; }
 
-    //    [JsonPropertyName("personalIdentityNumber")]
-    //    public string? PersonalIdentityNumber { get; set; }
-    //}
+        //    [JsonPropertyName("personalIdentityNumber")]
+        //    public string? PersonalIdentityNumber { get; set; }
+        //}
 
-    //public class ContactInformation
-    //{
-    //    [JsonPropertyName("privateEmail")]
-    //    public string? PrivateEmail { get; set; }
+        //public class ContactInformation
+        //{
+        //    [JsonPropertyName("privateEmail")]
+        //    public string? PrivateEmail { get; set; }
 
-    //    [JsonPropertyName("privatePhone")]
-    //    public string? PrivatePhone { get; set; }
+        //    [JsonPropertyName("privatePhone")]
+        //    public string? PrivatePhone { get; set; }
 
-    //    [JsonPropertyName("streetAddress")]
-    //    public string? StreetAddress { get; set; }
+        //    [JsonPropertyName("streetAddress")]
+        //    public string? StreetAddress { get; set; }
 
-    //    [JsonPropertyName("postalCode")]
-    //    public string? PostalCode { get; set; }
+        //    [JsonPropertyName("postalCode")]
+        //    public string? PostalCode { get; set; }
 
-    //    [JsonPropertyName("city")]
-    //    public string? City { get; set; }
+        //    [JsonPropertyName("city")]
+        //    public string? City { get; set; }
 
-    //    [JsonPropertyName("country")]
-    //    public string? Country { get; set; }
-    //}
+        //    [JsonPropertyName("country")]
+        //    public string? Country { get; set; }
+        //}
 
-    //public class Ice
-    //{
-    //    [JsonPropertyName("name")]
-    //    public string? Name { get; set; }
+        //public class Ice
+        //{
+        //    [JsonPropertyName("name")]
+        //    public string? Name { get; set; }
 
-    //    [JsonPropertyName("phone")]
-    //    public string? Phone { get; set; }
+        //    [JsonPropertyName("phone")]
+        //    public string? Phone { get; set; }
 
-    //    [JsonPropertyName("relation")]
-    //    public string? Relation { get; set; }
-    //}
-    public class Salary
+        //    [JsonPropertyName("relation")]
+        //    public string? Relation { get; set; }
+        //}
+        public class Salary
     {
         //[JsonPropertyName("salaryId")]
         //public string SalaryId { get; set; }

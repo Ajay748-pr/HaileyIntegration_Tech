@@ -128,8 +128,8 @@ public class Employment
 
 public class Terms
 {
-    //    [JsonPropertyName("employmentType")]
-    //    public string? EmploymentType { get; set; }
+    [JsonPropertyName("employmentType")]
+    public string? EmploymentType { get; set; }
 
     //    [JsonPropertyName("noticePeriodMonths")]
     //    public int? NoticePeriodMonths { get; set; }
@@ -140,14 +140,16 @@ public class Terms
     //    [JsonPropertyName("noticePeriodUnit")]
     //    public string? NoticePeriodUnit { get; set; }
 
-    //    [JsonPropertyName("endOfProbationaryPeriod")]
-    //    public DateOnly? EndOfProbationaryPeriod { get; set; }
+    [JsonPropertyName("endOfProbationaryPeriod")]
+    [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
+    public DateOnly? EndOfProbationaryPeriod { get; set; }
 
     //    [JsonPropertyName("fixedTermType")]
     //    public string? FixedTermType { get; set; }
 
-    //    [JsonPropertyName("endOfFixedTerm")]
-    //    public DateOnly? EndOfFixedTerm { get; set; }
+    [JsonPropertyName("endOfFixedTerm")]
+    [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
+    public DateOnly? EndOfFixedTerm { get; set; }
 
     [JsonPropertyName("scopePercentage")]
     public decimal? ScopePercentage { get; set; }

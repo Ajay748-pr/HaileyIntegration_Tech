@@ -143,24 +143,17 @@ public sealed class QuinyxAgreementUpdater(
                 dest.expires = false;
                 dest.expiresSpecified = true;
             }
-            else
-            {
-                //var lastWorkingDay = employment.LastWorkingDay;
-                var endDate = employment.EndDate;
-                //var toDate = lastWorkingDay.HasValue && (!endDate.HasValue || lastWorkingDay.Value < endDate.Value)
-                //    ? lastWorkingDay
-                //    : endDate;
-
-                if (endDate.HasValue)
-                {
-                    dest.toDate = endDate.Value.ToDateTime(TimeOnly.MinValue);
-                    dest.toDateSpecified = true;
-                    dest.expires = false;
-                    dest.expiresSpecified = true;
-                }
-            }
         }
-       
+        var endDate = ResolveEndDate(details, employment);
+
+        if (endDate.HasValue)
+        {
+            dest.toDate = endDate.Value.ToDateTime(TimeOnly.MinValue);
+            dest.toDateSpecified = true;
+            dest.expires = true;
+            dest.expiresSpecified = true;
+        }
+
         if (details.HaileyEmployeeDetails.JobData?.Employment?.DateOfJoining.HasValue == true)
         {
             dest.fromDate = details.HaileyEmployeeDetails.JobData.Employment.DateOfJoining.Value.ToDateTime(TimeOnly.MinValue);
@@ -168,6 +161,35 @@ public sealed class QuinyxAgreementUpdater(
         }
 
         return dest;
+    }
+
+    // End date depends on the employment type:
+    // FixedTerm          → terms.endOfFixedTerm
+    // Permanent          → jobData.employment.lastDayOfEmployment
+    // ProbationaryPeriod → terms.endOfProbationaryPeriod
+    // Unknown type or no date for the type → falls back to the employment's endDate.
+    private DateOnly? ResolveEndDate(HaileyDeatils details, EmploymentItem employment)
+    {
+        var employmentType = employment.Terms?.EmploymentType;
+        var normalizedType = employmentType?.Replace(" ", "").Replace("_", "").Replace("-", "").ToLowerInvariant();
+
+        DateOnly? endDate = normalizedType switch
+        {
+            "fixedterm" => employment.Terms?.EndOfFixedTerm,
+            "permanent" => details.HaileyEmployeeDetails.JobData?.Employment?.LastDayOfEmployment,
+            "probationaryperiod" or "probationary" => employment.Terms?.EndOfProbationaryPeriod,
+            _ => null
+        };
+
+        if (endDate is null && employment.EndDate.HasValue)
+        {
+            logger.LogInformation(
+                "No end date for EmploymentType={EmploymentType} on employment {EmploymentId}. Using employment endDate.",
+                employmentType, employment.EmploymentId);
+            return employment.EndDate;
+        }
+
+        return endDate;
     }
 
     // scopePercentage is a fraction from Hailey (1 = 100%, 0.45 = 45%).

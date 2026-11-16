@@ -54,8 +54,8 @@ public class HaileyEmployee
     //    //[JsonPropertyName("employmentStatus")]
     //    //public string? EmploymentStatus { get; set; }
 
-    //    //[JsonPropertyName("employmentType")]
-    //    //public string? EmploymentType { get; set; }
+    [JsonPropertyName("employmentType")]
+    public string? EmploymentType { get; set; }
 
     //    //[JsonPropertyName("noticePeriod")]
     //    //public string? NoticePeriod { get; set; }
@@ -63,14 +63,14 @@ public class HaileyEmployee
     //    //[JsonPropertyName("noticePeriodUnit")]
     //    //public string? NoticePeriodUnit { get; set; }
 
-    //    //[JsonPropertyName("endOfProbationaryPeriod")]
-    //    //public DateOnly? EndOfProbationaryPeriod { get; set; }
+    [JsonPropertyName("endOfProbationaryPeriod")]
+    public DateOnly? EndOfProbationaryPeriod { get; set; }
 
     //    //[JsonPropertyName("fixedTermType")]
     //    //public string? FixedTermType { get; set; }
 
-    //    //[JsonPropertyName("endOfFixedTerm")]
-    //    //public DateOnly? EndOfFixedTerm { get; set; }
+    [JsonPropertyName("endOfFixedTerm")]
+    public DateOnly? EndOfFixedTerm { get; set; }
 
     //    [JsonPropertyName("scopePercentage")]
     //    public decimal? ScopePercentage { get; set; }
