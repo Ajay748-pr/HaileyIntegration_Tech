@@ -16,7 +16,11 @@ public sealed class NullableDateOnlyConverter : JsonConverter<DateOnly?>
     {
         if (reader.TokenType != JsonTokenType.String)
         {
-            reader.Skip();
+            // Null/number/bool are single tokens and need no skipping. Skip() throws on a
+            // streamed (non-final) buffer, so use TrySkip for an unexpected object/array;
+            // the serializer has already buffered the whole value for custom converters.
+            if (reader.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray)
+                reader.TrySkip();
             return null;
         }
 

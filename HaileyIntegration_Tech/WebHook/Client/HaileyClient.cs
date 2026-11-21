@@ -175,7 +175,7 @@ public sealed class HaileyClient
         try
         {
             var employees = JsonSerializer.Deserialize<List<HaileyEmployee>>(responseBody, JsonOptions);
-            return employees?.Where(x=>x.LastDayOfEmployment !=null).ToList() ?? [];
+            return employees?.Where(x=>x.LastDayOfEmployment !=null ||x.EndOfFixedTerm!=null || x.EndOfProbationaryPeriod!=null).ToList() ?? [];
         }
         catch (JsonException ex)
         {

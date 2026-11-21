@@ -27,20 +27,37 @@ public class DeactivateUser
 
         var today = DateOnly.FromDateTime(DateTime.Today);
         var twoDaysAgo = today.AddDays(-2);
-
+        var endOfFixedTerm = employees
+             .Where(e => e.EndOfFixedTerm.HasValue &&
+                        e.EndOfFixedTerm.Value >= twoDaysAgo &&
+                        e.EndOfFixedTerm.Value <= today)
+            .ToList();
+        var endOfProbationaryPeriod = employees
+            .Where(e => e.EndOfProbationaryPeriod.HasValue &&
+                       e.EndOfProbationaryPeriod.Value >= twoDaysAgo &&
+                       e.EndOfProbationaryPeriod.Value <= today)
+           .ToList();
         var inactiveEmployees = employees
             .Where(e => e.LastDayOfEmployment.HasValue &&
                         e.LastDayOfEmployment.Value >= twoDaysAgo &&
                         e.LastDayOfEmployment.Value <= today)
             .ToList();
-        _logger.LogInformation("Found {count} inactive employee(s) to deactivate.", inactiveEmployees.Count);
 
-        foreach (var employee in inactiveEmployees)
+        inactiveEmployees.AddRange(endOfProbationaryPeriod);
+        inactiveEmployees.AddRange(endOfFixedTerm);
+        string companyData = string.Empty;
+        if (inactiveEmployees.Any())
         {
+            _logger.LogInformation("Found {count} inactive employee(s) to deactivate.", inactiveEmployees.Count);
+            
+            companyData = await _haileyClient.GetCompanyAsync();
+        }
+      
+        foreach (var employee in inactiveEmployees)
+        {        
             try
             {
                 string jsonString = JsonSerializer.Serialize(employee);
-                var companyData = await _haileyClient.GetCompanyAsync();
                 _integrationClient.SendDeactivateEmployeeAsync(jsonString, companyData);
                 _logger.LogInformation("Deactivated employee {employeeId}.", employee.EmployeeId);
             }

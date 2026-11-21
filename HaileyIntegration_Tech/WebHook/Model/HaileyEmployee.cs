@@ -67,12 +67,14 @@ namespace HaileyWebhook.Model
         //    //public string? NoticePeriodUnit { get; set; }
 
         [JsonPropertyName("endOfProbationaryPeriod")]
+        [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
         public DateOnly? EndOfProbationaryPeriod { get; set; }
 
         //    //[JsonPropertyName("fixedTermType")]
         //    //public string? FixedTermType { get; set; }
 
         [JsonPropertyName("endOfFixedTerm")]
+        [JsonConverter(typeof(HaileyIntegration.Tech.Models.Dto.NullableDateOnlyConverter))]
         public DateOnly? EndOfFixedTerm { get; set; }
 
         //    [JsonPropertyName("scopePercentage")]

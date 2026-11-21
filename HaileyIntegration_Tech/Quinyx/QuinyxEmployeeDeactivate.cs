@@ -13,35 +13,6 @@ public sealed partial class QuinyxEmployeeDeactivate(
 {
     public async Task<SyncResult> ExecuteAsync(HaileyDeatilsToDeactivate details, CancellationToken ct = default)
     {
-        if (string.IsNullOrEmpty(details.DeactivateHaileyEmployee.EmploymentNumber)
-            || details.DeactivateHaileyEmployee.LastDayOfEmployment == null)
-        {
-            logger.LogError("Required fields are missing.");
-            return new SyncResult
-            {
-                Success = false,
-                EmployeeNumber = details.DeactivateHaileyEmployee.EmploymentNumber,
-                TargetSystem = "Quinyx",
-                ErrorCode = "404",
-                Message = "required fields are missing"
-            };
-        }
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        var twoDaysAgo = today.AddDays(-2);
-
-        var inactiveEmployees = details.DeactivateHaileyEmployee.LastDayOfEmployment.Value >= twoDaysAgo &&
-                        details.DeactivateHaileyEmployee.LastDayOfEmployment.Value <= today ? false : true;
-        if (inactiveEmployees)
-        {
-            return new SyncResult
-            {
-                Success = false,
-                EmployeeNumber = details.DeactivateHaileyEmployee.EmploymentNumber,
-                TargetSystem = "Quinyx",
-                ErrorCode = "400",
-                Message = "lastDayOfEmployment is future date"
-            };
-        }
         logger.LogInformation(
             "DeactivateEmployee starting for EmploymentNumber={EmploymentNumber}", details.DeactivateHaileyEmployee.EmploymentNumber);
 
