@@ -28,17 +28,20 @@ public class DeactivateUser
         var today = DateOnly.FromDateTime(DateTime.Today);
         var twoDaysAgo = today.AddDays(-2);
         var endOfFixedTerm = employees
-             .Where(e => e.EndOfFixedTerm.HasValue &&
+             .Where(e => e.EmploymentType.ToLower() == "fixedterm" &&
+                        e.EndOfFixedTerm.HasValue &&
                         e.EndOfFixedTerm.Value >= twoDaysAgo &&
                         e.EndOfFixedTerm.Value <= today)
             .ToList();
         var endOfProbationaryPeriod = employees
-            .Where(e => e.EndOfProbationaryPeriod.HasValue &&
-                       e.EndOfProbationaryPeriod.Value >= twoDaysAgo &&
-                       e.EndOfProbationaryPeriod.Value <= today)
+            .Where(e => (e.EmploymentType.ToLower() == "probationary" || e.EmploymentType.ToLower() == "probationary" )&&
+                        e.EndOfProbationaryPeriod.HasValue &&
+                        e.EndOfProbationaryPeriod.Value >= twoDaysAgo &&
+                        e.EndOfProbationaryPeriod.Value <= today)
            .ToList();
         var inactiveEmployees = employees
-            .Where(e => e.LastDayOfEmployment.HasValue &&
+            .Where(e => e.EmploymentType.ToLower() == "permanent" &&
+                        e.LastDayOfEmployment.HasValue &&
                         e.LastDayOfEmployment.Value >= twoDaysAgo &&
                         e.LastDayOfEmployment.Value <= today)
             .ToList();
@@ -51,20 +54,21 @@ public class DeactivateUser
             _logger.LogInformation("Found {count} inactive employee(s) to deactivate.", inactiveEmployees.Count);
             
             companyData = await _haileyClient.GetCompanyAsync();
+
+            foreach (var employee in inactiveEmployees)
+            {
+                try
+                {
+                    string jsonString = JsonSerializer.Serialize(employee);
+                    _integrationClient.SendDeactivateEmployeeAsync(jsonString, companyData);
+                    _logger.LogInformation("Deactivated employee {employeeId}.", employee.EmployeeId);
+                }
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogError(ex, "Failed to deactivate employee {employeeId}.", employee.EmployeeId);
+                }
+            }
         }
       
-        foreach (var employee in inactiveEmployees)
-        {        
-            try
-            {
-                string jsonString = JsonSerializer.Serialize(employee);
-                _integrationClient.SendDeactivateEmployeeAsync(jsonString, companyData);
-                _logger.LogInformation("Deactivated employee {employeeId}.", employee.EmployeeId);
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "Failed to deactivate employee {employeeId}.", employee.EmployeeId);
-            }
-        }
     }
 }

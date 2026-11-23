@@ -1,4 +1,4 @@
-using FuzzySharp;
+﻿using FuzzySharp;
 using HaileyIntegration.Tech.Models;
 using HaileyIntegration.Tech.Models.Dto;
 using HaileyIntegration.Tech.Services.Downstream;
@@ -107,6 +107,31 @@ public sealed partial class QuinyxEmployeeUpdater(
         return (matchedUnit?.API_key, department.Name);
     }
 
+    // End date depends on the employment type:
+    // FixedTerm          → terms.endOfFixedTerm
+    // Permanent          → jobData.employment.lastDayOfEmployment
+    // ProbationaryPeriod → terms.endOfProbationaryPeriod
+    // Unknown type or no date for the type → falls back to the employment's endDate.
+    private bool isActiveUser(HaileyDeatils details, EmploymentItem employment)
+    {
+        var employmentType = employment.Terms?.EmploymentType;
+        var normalizedType = employmentType?.Replace(" ", "").Replace("_", "").Replace("-", "").ToLowerInvariant();
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        DateOnly? endDate = normalizedType switch
+        {
+            "fixedterm" => employment.Terms?.EndOfFixedTerm,
+            "permanent" => details.HaileyEmployeeDetails.JobData?.Employment?.LastDayOfEmployment,
+            "probationaryperiod" or "probationary" => employment.Terms?.EndOfProbationaryPeriod,
+            _ => null
+        };
+        if (endDate.HasValue && endDate.Value <= today)
+        {
+            return false;
+        }
+        return true;
+    }
+
     private UpdateEmployee MapToQuinyxEmployee(HaileyDeatils src, string? unit)
     {
         var employee = src.HaileyEmployeeDetails;
@@ -128,11 +153,23 @@ public sealed partial class QuinyxEmployeeUpdater(
             country = contact?.Country,
             // Manager is optional; leave reportingTo unset when Hailey has no manager.
             reportingTo = string.IsNullOrWhiteSpace(src.HaileyManagerEmployeeNumber) ? null : src.HaileyManagerEmployeeNumber,
-            active = 1,
-            activeSpecified = true,
+            
             extSectionId = unit,
         };
-
+        if (isActiveUser(src,src.HaileyEmployeeDetails.JobData.Employment.Employments.FirstOrDefault()))
+        {
+            dest.active = 1;
+            dest.activeSpecified = true;
+            dest.passive = 0;
+            dest.passiveSpecified = true;
+        }
+        else
+        {
+            dest.active = 0;
+            dest.activeSpecified = true;
+            dest.passive = 1;
+            dest.passiveSpecified = true;
+        }
         if (!string.IsNullOrWhiteSpace(sensitive?.Gender))
         {
             dest.sex = sensitive.Gender.Trim().ToLower() switch
